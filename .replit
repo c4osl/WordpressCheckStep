@@ -31,7 +31,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "php -S 0.0.0.0:5000"
+args = "php -S 0.0.0.0:5000 -t checkstep-integration/"
 waitForPort = 5000
 
 [[workflows.workflow]]
@@ -49,7 +49,7 @@ task = "shell.exec"
 args = "cd /home/runner/$(basename $PWD) && php -d display_errors=1 tests/test-moderation.php"
 
 [deployment]
-run = ["sh", "-c", "php -S 0.0.0.0:5000"]
+run = ["sh", "-c", "php -S 0.0.0.0:5000 -t checkstep-integration/"]
 
 [[ports]]
 localPort = 5000
