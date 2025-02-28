@@ -14,7 +14,8 @@
 
 // If this file is called directly, abort.
 if (!defined('WPINC')) {
-    die;
+    // Load stubs if we're not in WordPress environment
+    require_once __DIR__ . '/includes/wordpress-stubs.php';
 }
 
 // Plugin version
