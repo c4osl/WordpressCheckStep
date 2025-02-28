@@ -1,10 +1,33 @@
 <?php
 /**
  * Admin Interface Handler Class
+ *
+ * Manages the WordPress admin interface for the CheckStep integration plugin.
+ * Handles settings registration, admin menu creation, and rendering of
+ * configuration forms for API credentials and webhook settings.
+ *
+ * @package CheckStep_Integration
+ * @subpackage Admin
+ * @since 1.0.0
+ */
+
+/**
+ * Class CheckStep_Admin
+ *
+ * Implements the WordPress admin interface for managing CheckStep integration settings.
+ * Creates a settings page under the WordPress Settings menu and registers all necessary
+ * options for storing API credentials and configuration.
+ *
+ * @since 1.0.0
  */
 class CheckStep_Admin {
     /**
      * Constructor
+     *
+     * Initializes the admin interface by registering actions for the admin menu
+     * and plugin settings.
+     *
+     * @since 1.0.0
      */
     public function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
@@ -13,6 +36,10 @@ class CheckStep_Admin {
 
     /**
      * Add admin menu
+     *
+     * Creates the settings page menu item under the WordPress Settings menu.
+     *
+     * @since 1.0.0
      */
     public function add_admin_menu() {
         add_options_page(
@@ -26,6 +53,11 @@ class CheckStep_Admin {
 
     /**
      * Register plugin settings
+     *
+     * Sets up all plugin settings and their sections in the WordPress Settings API.
+     * Registers the API key, webhook secret, and appeal URL settings.
+     *
+     * @since 1.0.0
      */
     public function register_settings() {
         register_setting('checkstep_settings', 'checkstep_api_key');
@@ -66,6 +98,10 @@ class CheckStep_Admin {
 
     /**
      * Render settings page
+     *
+     * Outputs the HTML for the plugin's settings page in the WordPress admin.
+     *
+     * @since 1.0.0
      */
     public function render_settings_page() {
         require_once plugin_dir_path(__FILE__) . 'partials/settings-page.php';
@@ -73,6 +109,10 @@ class CheckStep_Admin {
 
     /**
      * Render section info
+     *
+     * Outputs the description for the main settings section.
+     *
+     * @since 1.0.0
      */
     public function render_section_info() {
         echo '<p>' . __('Configure your CheckStep API credentials and settings below.', 'checkstep-integration') . '</p>';
@@ -80,6 +120,10 @@ class CheckStep_Admin {
 
     /**
      * Render API key field
+     *
+     * Outputs the form field for the CheckStep API key setting.
+     *
+     * @since 1.0.0
      */
     public function render_api_key_field() {
         $api_key = get_option('checkstep_api_key');
@@ -95,6 +139,10 @@ class CheckStep_Admin {
 
     /**
      * Render webhook secret field
+     *
+     * Outputs the form field for the CheckStep webhook secret setting.
+     *
+     * @since 1.0.0
      */
     public function render_webhook_secret_field() {
         $webhook_secret = get_option('checkstep_webhook_secret');
@@ -110,6 +158,10 @@ class CheckStep_Admin {
 
     /**
      * Render appeal URL field
+     *
+     * Outputs the form field for the appeal URL setting.
+     *
+     * @since 1.0.0
      */
     public function render_appeal_url_field() {
         $appeal_url = get_option('checkstep_appeal_url');

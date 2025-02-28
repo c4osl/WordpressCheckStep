@@ -2,6 +2,10 @@
 /**
  * CheckStep Admin Integration Tab
  *
+ * Implements the BuddyBoss Platform integration tab for CheckStep configuration.
+ * Provides settings fields for API credentials, moderation preferences, and
+ * notification settings within the BuddyBoss admin interface.
+ *
  * @package CheckStep_Integration
  * @subpackage Admin
  */
@@ -11,15 +15,24 @@ defined('ABSPATH') || exit;
 
 /**
  * Class CheckStep_Admin_Tab
+ *
+ * Extends BuddyBoss's integration tab system to provide a dedicated configuration
+ * interface for CheckStep settings. Handles the registration and display of settings
+ * fields, section management, and asset enqueuing.
+ *
+ * @since 1.0.0
  */
 class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
 
     /**
      * Initialize the admin tab.
      *
-     * @param string $tab_path
-     * @param string $tab_name
-     * @param array  $tab_args
+     * Sets up the tab properties and hooks for the CheckStep integration settings.
+     *
+     * @since 1.0.0
+     * @param string $tab_path Tab identifier path
+     * @param string $tab_name Display name of the tab
+     * @param array  $tab_args Additional tab configuration arguments
      */
     public function initialize($tab_path, $tab_name, $tab_args = array()) {
         $this->tab = $tab_path;
@@ -31,6 +44,11 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
 
     /**
      * Setup hooks for the admin tab.
+     *
+     * Registers necessary WordPress hooks for settings and asset management.
+     *
+     * @since 1.0.0
+     * @access protected
      */
     protected function setup_hooks() {
         // Register settings on admin_init
@@ -42,6 +60,10 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
 
     /**
      * Register admin settings.
+     *
+     * Creates sections and fields for the CheckStep integration settings.
+     *
+     * @since 1.0.0
      */
     public function register_fields() {
         $sections = array(
@@ -106,6 +128,10 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
 
     /**
      * Enqueue admin scripts and styles.
+     *
+     * Loads the necessary CSS and JavaScript files for the admin interface.
+     *
+     * @since 1.0.0
      */
     public function enqueue_scripts() {
         if ($this->is_current_tab()) {
@@ -128,6 +154,12 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
 
     /**
      * Check if current page is this tab.
+     *
+     * Determines if the current admin page corresponds to this integration tab.
+     *
+     * @since 1.0.0
+     * @access protected
+     * @return bool True if current page is this tab
      */
     protected function is_current_tab() {
         if (!is_admin()) {
@@ -142,6 +174,10 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
 
     /**
      * API Settings section description.
+     *
+     * Outputs the descriptive text for the API settings section.
+     *
+     * @since 1.0.0
      */
     public function api_settings_section() {
         ?>
@@ -151,6 +187,10 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
 
     /**
      * API Key field.
+     *
+     * Renders the input field for the CheckStep API key with proper security measures.
+     *
+     * @since 1.0.0
      */
     public function api_key_field() {
         $value = bp_get_option('checkstep_api_key', '');
@@ -168,6 +208,10 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
 
     /**
      * API URL field.
+     *
+     * Renders the input field for the CheckStep API endpoint URL.
+     *
+     * @since 1.0.0
      */
     public function api_url_field() {
         $value = bp_get_option('checkstep_api_url', 'https://api.checkstep.com/v1');
@@ -185,6 +229,10 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
 
     /**
      * Moderation Settings section description.
+     *
+     * Outputs the descriptive text for the moderation settings section.
+     *
+     * @since 1.0.0
      */
     public function moderation_settings_section() {
         ?>
@@ -194,6 +242,10 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
 
     /**
      * Auto-moderation field.
+     *
+     * Renders the checkbox for enabling automatic content moderation.
+     *
+     * @since 1.0.0
      */
     public function auto_moderation_field() {
         $value = bp_get_option('checkstep_auto_moderation', 0);
@@ -214,6 +266,10 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
 
     /**
      * Notification level field.
+     *
+     * Renders the dropdown for selecting moderation notification levels.
+     *
+     * @since 1.0.0
      */
     public function notification_level_field() {
         $value = bp_get_option('checkstep_notification_level', 'moderate');

@@ -1,5 +1,12 @@
 /**
  * CheckStep Integration Admin Styles
+ *
+ * Provides styling for the CheckStep integration settings page in the WordPress admin.
+ * Includes styles for form fields, status indicators, and layout components.
+ *
+ * @package CheckStep_Integration
+ * @subpackage Admin
+ * @since 1.0.0
  */
 
 .checkstep-settings-wrap {

@@ -1,5 +1,12 @@
 /**
  * CheckStep Integration Admin Scripts
+ *
+ * Handles interactive functionality on the CheckStep integration settings page.
+ * Provides AJAX-based API connection testing and field visibility toggling.
+ *
+ * @package CheckStep_Integration
+ * @subpackage Admin
+ * @since 1.0.0
  */
 (function($) {
     'use strict';
@@ -37,7 +44,7 @@
             e.preventDefault();
             var $input = $('#checkstep_api_key');
             var type = $input.attr('type');
-            
+
             $input.attr('type', type === 'password' ? 'text' : 'password');
             $(this).text(type === 'password' ? 'Hide' : 'Show');
         });

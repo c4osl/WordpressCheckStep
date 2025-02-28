@@ -1,10 +1,31 @@
 <?php
 /**
  * Notifications Handler Class
+ *
+ * Manages BuddyBoss notifications and messages for moderation actions.
+ * Provides user feedback for content moderation decisions through
+ * the BuddyBoss notification system and private messages.
+ *
+ * @package CheckStep_Integration
+ * @subpackage Notifications
+ * @since 1.0.0
+ */
+
+/**
+ * Class CheckStep_Notifications
+ *
+ * Handles the creation and delivery of moderation-related notifications
+ * to users through BuddyBoss platform's notification system.
+ *
+ * @since 1.0.0
  */
 class CheckStep_Notifications {
     /**
      * Constructor
+     *
+     * Sets up notification hooks for moderation decisions.
+     *
+     * @since 1.0.0
      */
     public function __construct() {
         add_action('checkstep_decision_handled', array($this, 'send_notification'));
@@ -12,6 +33,11 @@ class CheckStep_Notifications {
 
     /**
      * Send notification to user
+     *
+     * Creates and sends notifications about moderation decisions to affected users.
+     *
+     * @since 1.0.0
+     * @param array $decision_data Moderation decision data including content ID and action
      */
     public function send_notification($decision_data) {
         $content_id = $decision_data['content_id'];
@@ -32,6 +58,14 @@ class CheckStep_Notifications {
 
     /**
      * Get notification message
+     *
+     * Generates localized notification messages based on moderation action type.
+     *
+     * @since 1.0.0
+     * @access private
+     * @param string $action Moderation action (delete, hide, warn, ban_user)
+     * @param string $reason Reason for the moderation action
+     * @return string Formatted notification message
      */
     private function get_notification_message($action, $reason) {
         $messages = array(
@@ -55,6 +89,13 @@ class CheckStep_Notifications {
 
     /**
      * Get appeal link
+     *
+     * Generates a URL for users to appeal moderation decisions.
+     *
+     * @since 1.0.0
+     * @access private
+     * @param array $decision_data Decision data containing ID and content information
+     * @return string Appeal URL or empty string if appeals are disabled
      */
     private function get_appeal_link($decision_data) {
         $appeal_url = get_option('checkstep_appeal_url');
@@ -70,6 +111,15 @@ class CheckStep_Notifications {
 
     /**
      * Send BuddyBoss notification
+     *
+     * Creates both a notification and a private message in BuddyBoss
+     * to inform users about moderation decisions.
+     *
+     * @since 1.0.0
+     * @access private
+     * @param int    $user_id      User ID to notify
+     * @param string $message      Notification message
+     * @param string $appeal_link  Optional appeal link
      */
     private function send_buddyboss_notification($user_id, $message, $appeal_link) {
         if (!function_exists('bp_notifications_add_notification')) {

@@ -2,7 +2,12 @@
 /**
  * CheckStep Moderation Handler Class
  *
+ * This class handles content moderation by integrating with the CheckStep API.
+ * It extends the BuddyBoss moderation system to provide automated content
+ * moderation capabilities through webhook-based decision handling.
+ *
  * @package CheckStep_Integration
+ * @subpackage Moderation
  * @since 1.0.0
  */
 
@@ -12,20 +17,27 @@ defined('ABSPATH') || exit;
 /**
  * Class CheckStep_Moderation
  *
- * Handles content moderation via CheckStep API
+ * Handles content moderation via CheckStep API by extending BuddyBoss's moderation system.
+ * Provides webhook endpoints for receiving moderation decisions and implementing
+ * appropriate actions like hiding content, warning users, or banning accounts.
+ *
+ * @package CheckStep_Integration
+ * @since 1.0.0
  */
 class CheckStep_Moderation extends BP_Moderation_Abstract {
 
     /**
-     * Item type
+     * Item type identifier for moderated content
      *
+     * @since 1.0.0
      * @var string
      */
     public static $moderation_type = 'checkstep_content';
 
     /**
-     * CheckStep API instance
+     * CheckStep API instance for making API calls
      *
+     * @since 1.0.0
      * @var CheckStep_API
      */
     private $api;
@@ -33,7 +45,11 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
     /**
      * Constructor
      *
-     * @param CheckStep_API $api CheckStep API instance
+     * Initializes the moderation handler and sets up WordPress hooks.
+     * Skips setup for admin backend unless explicitly enabled.
+     *
+     * @since 1.0.0
+     * @param CheckStep_API $api CheckStep API instance for making moderation requests
      */
     public function __construct($api) {
         $this->api = $api;
@@ -52,6 +68,11 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
 
     /**
      * Setup WordPress hooks
+     *
+     * Registers webhook endpoints, decision handlers, and content filters.
+     *
+     * @since 1.0.0
+     * @access private
      */
     private function setup_hooks() {
         // Register webhook endpoints
@@ -67,6 +88,10 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
 
     /**
      * Register webhook endpoints
+     *
+     * Sets up REST API endpoints for receiving moderation decisions from CheckStep.
+     *
+     * @since 1.0.0
      */
     public function register_webhooks() {
         register_rest_route('checkstep/v1', '/decisions', array(
@@ -100,10 +125,13 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
     }
 
     /**
-     * Verify webhook request
+     * Verify webhook request authenticity
      *
-     * @param WP_REST_Request $request Request object
-     * @return bool|WP_Error
+     * Validates incoming webhook requests using HMAC signature verification.
+     *
+     * @since 1.0.0
+     * @param WP_REST_Request $request Request object containing headers and payload
+     * @return bool|WP_Error True if verification passes, WP_Error on failure
      */
     public function verify_webhook($request) {
         $signature = $request->get_header('X-CheckStep-Signature');
@@ -142,8 +170,12 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
     /**
      * Handle incoming decision webhook
      *
-     * @param WP_REST_Request $request Request object
-     * @return WP_REST_Response|WP_Error
+     * Processes moderation decisions received from CheckStep and schedules
+     * asynchronous handling of the decision.
+     *
+     * @since 1.0.0
+     * @param WP_REST_Request $request Request object containing decision data
+     * @return WP_REST_Response|WP_Error Response confirming receipt or error details
      */
     public function handle_decision_webhook($request) {
         $params = $request->get_params();
@@ -180,7 +212,11 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
     /**
      * Handle moderation decision
      *
-     * @param array $decision_data Decision data from CheckStep
+     * Implements the actual moderation actions based on the decision received
+     * from CheckStep. Supports content deletion, hiding, warnings, and user bans.
+     *
+     * @since 1.0.0
+     * @param array $decision_data Decision data containing action and context
      */
     public function handle_moderation_decision($decision_data) {
         $content_id = absint($decision_data['content_id']);
@@ -215,21 +251,27 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
         }
 
         /**
-         * Action fired after a CheckStep moderation decision is handled
+         * Fires after a CheckStep moderation decision has been handled
          *
-         * @param array $decision_data The decision data
-         * @param string $action The action taken
-         * @param int $content_id The content ID
+         * @since 1.0.0
+         *
+         * @param array  $decision_data The complete decision data
+         * @param string $action        The specific action taken
+         * @param int    $content_id    The ID of the affected content
          */
         do_action('checkstep_decision_handled', $decision_data, $action, $content_id);
     }
 
     /**
-     * Filter moderated content
+     * Filter moderated content from queries
      *
+     * Adds WHERE conditions to exclude content that has been hidden by
+     * the moderation system.
+     *
+     * @since 1.0.0
      * @param string $where_sql Current WHERE clause
-     * @param array  $args Query arguments
-     * @return string
+     * @param array  $args      Query arguments
+     * @return string Modified WHERE clause
      */
     public function filter_moderated_content($where_sql, $args = array()) {
         global $wpdb;
@@ -252,10 +294,13 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
     }
 
     /**
-     * Get permalink
+     * Get content permalink
      *
+     * Required implementation from BP_Moderation_Abstract.
+     *
+     * @since 1.0.0
      * @param int $content_id Content ID
-     * @return string
+     * @return string Permalink URL
      */
     public static function get_permalink($content_id) {
         return get_permalink(absint($content_id));
@@ -264,8 +309,11 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
     /**
      * Get content owner id
      *
+     * Required implementation from BP_Moderation_Abstract.
+     *
+     * @since 1.0.0
      * @param int $content_id Content ID
-     * @return int
+     * @return int Owner user ID
      */
     public static function get_content_owner_id($content_id) {
         $post = get_post(absint($content_id));
@@ -275,6 +323,10 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
     /**
      * Delete content
      *
+     * Permanently removes content from the site.
+     *
+     * @since 1.0.0
+     * @access private
      * @param int $content_id Content ID
      */
     private function delete_content($content_id) {
@@ -287,6 +339,10 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
     /**
      * Hide content
      *
+     * Makes content private so it's only visible to administrators.
+     *
+     * @since 1.0.0
+     * @access private
      * @param int $content_id Content ID
      */
     private function hide_content($content_id) {
@@ -302,8 +358,12 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
     /**
      * Add content warning
      *
+     * Attaches a warning message to content using taxonomy terms.
+     *
+     * @since 1.0.0
+     * @access private
      * @param int    $content_id Content ID
-     * @param string $warning Warning message
+     * @param string $warning    Warning message
      */
     private function add_content_warning($content_id, $warning) {
         $content_id = absint($content_id);
@@ -316,7 +376,11 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
     /**
      * Ban user
      *
-     * @param int $user_id User ID
+     * Bans a user using BuddyBoss's moderation system.
+     *
+     * @since 1.0.0
+     * @access private
+     * @param int $user_id User ID to ban
      */
     private function ban_user($user_id) {
         $user_id = absint($user_id);
