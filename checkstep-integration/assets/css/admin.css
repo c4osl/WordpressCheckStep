@@ -1,0 +1,51 @@
+/**
+ * CheckStep Integration Admin Styles
+ */
+
+.checkstep-settings-wrap {
+    max-width: 800px;
+    margin: 20px 0;
+}
+
+.checkstep-settings-wrap .form-table {
+    margin-top: 20px;
+}
+
+.checkstep-settings-wrap .form-table th {
+    padding: 20px 10px;
+}
+
+.checkstep-settings-wrap .description {
+    margin: 5px 0;
+    color: #666;
+}
+
+/* Status indicators */
+.checkstep-status {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 3px;
+    margin-left: 10px;
+}
+
+.checkstep-status.connected {
+    background-color: #dff0d8;
+    color: #3c763d;
+}
+
+.checkstep-status.not-connected {
+    background-color: #f2dede;
+    color: #a94442;
+}
+
+/* Field styling */
+#checkstep_api_key,
+#checkstep_api_url {
+    width: 100%;
+    max-width: 400px;
+}
+
+.checkstep-settings-wrap .regular-text {
+    width: 100%;
+    max-width: 400px;
+}

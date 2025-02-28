@@ -23,36 +23,47 @@ define('CHECKSTEP_VERSION', '1.0.0');
 define('CHECKSTEP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CHECKSTEP_PLUGIN_URL', plugin_dir_url(__FILE__));
 
-// Load dependencies
-require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-api.php';
-require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-content-types.php';
-require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-ingestion.php';
-require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-moderation.php';
-require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-notifications.php';
-require_once CHECKSTEP_PLUGIN_DIR . 'admin/class-checkstep-admin.php';
-
 /**
- * Main plugin class
+ * Class CheckStep_Integration
+ * 
+ * Main plugin class that handles integration with BuddyBoss Platform
  */
-class CheckStep_Integration {
-    private static $instance = null;
-    private $api;
-    private $content_types;
-    private $ingestion;
-    private $moderation;
-    private $notifications;
-    private $admin;
+class CheckStep_Integration extends BP_Integration {
 
     /**
-     * Initialize the plugin
+     * Instance of this class.
+     *
+     * @var CheckStep_Integration
+     */
+    private static $instance = null;
+
+    /**
+     * Initialize the plugin.
      */
     private function __construct() {
-        $this->init_components();
-        $this->setup_hooks();
+        $this->start(
+            'checkstep',
+            __('CheckStep', 'checkstep-integration'),
+            'checkstep',
+            array(
+                'required_plugin' => array(
+                    array(
+                        'name'    => 'BuddyBoss Platform',
+                        'version' => '1.0.0',
+                        'slug'    => 'buddyboss-platform/bp-loader.php',
+                    ),
+                ),
+            )
+        );
+
+        // Initialize components after required plugins check
+        add_action('plugins_loaded', array($this, 'init_components'));
     }
 
     /**
-     * Get plugin instance
+     * Get plugin instance.
+     *
+     * @return CheckStep_Integration
      */
     public static function get_instance() {
         if (null === self::$instance) {
@@ -62,31 +73,69 @@ class CheckStep_Integration {
     }
 
     /**
-     * Initialize plugin components
+     * Initialize plugin components.
      */
-    private function init_components() {
+    public function init_components() {
+        if (!$this->check_requirements()) {
+            return;
+        }
+
+        // Load dependencies
+        require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-api.php';
+        require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-content-types.php';
+        require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-ingestion.php';
+        require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-moderation.php';
+        require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-notifications.php';
+        require_once CHECKSTEP_PLUGIN_DIR . 'admin/class-checkstep-admin.php';
+
+        // Initialize components
         $this->api = new CheckStep_API();
         $this->content_types = new CheckStep_Content_Types();
         $this->ingestion = new CheckStep_Ingestion($this->api, $this->content_types);
         $this->moderation = new CheckStep_Moderation($this->api);
         $this->notifications = new CheckStep_Notifications();
         $this->admin = new CheckStep_Admin();
-    }
 
-    /**
-     * Setup WordPress hooks
-     */
-    private function setup_hooks() {
-        // Activation/deactivation hooks
+        // Setup admin integration tab
+        $this->setup_admin_integration_tab();
+
+        // Register activation/deactivation hooks
         register_activation_hook(__FILE__, array($this, 'activate'));
         register_deactivation_hook(__FILE__, array($this, 'deactivate'));
-
-        // Plugin initialization hook
-        add_action('plugins_loaded', array($this, 'init'));
     }
 
     /**
-     * Plugin activation
+     * Check if required plugins are active.
+     *
+     * @return bool
+     */
+    private function check_requirements() {
+        if (!class_exists('BuddyBoss_Platform')) {
+            add_action('admin_notices', array($this, 'buddyboss_missing_notice'));
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Setup admin integration tab.
+     */
+    public function setup_admin_integration_tab() {
+        require_once CHECKSTEP_PLUGIN_DIR . 'admin/class-checkstep-admin-tab.php';
+
+        new CheckStep_Admin_Tab(
+            "bp-{$this->id}",
+            $this->name,
+            array(
+                'root_path'       => $this->path,
+                'root_url'        => $this->url,
+                'required_plugin' => $this->required_plugin,
+            )
+        );
+    }
+
+    /**
+     * Plugin activation.
      */
     public function activate() {
         // Schedule WP-Cron events
@@ -99,7 +148,7 @@ class CheckStep_Integration {
     }
 
     /**
-     * Plugin deactivation
+     * Plugin deactivation.
      */
     public function deactivate() {
         // Clear scheduled events
@@ -107,25 +156,7 @@ class CheckStep_Integration {
     }
 
     /**
-     * Initialize plugin
-     */
-    public function init() {
-        // Load text domain for internationalization
-        load_plugin_textdomain(
-            'checkstep-integration',
-            false,
-            dirname(plugin_basename(__FILE__)) . '/languages/'
-        );
-
-        // Check for required plugins
-        if (!class_exists('BuddyBoss_Platform')) {
-            add_action('admin_notices', array($this, 'buddyboss_missing_notice'));
-            return;
-        }
-    }
-
-    /**
-     * Create plugin tables
+     * Create plugin tables.
      */
     private function create_tables() {
         global $wpdb;
@@ -148,7 +179,7 @@ class CheckStep_Integration {
     }
 
     /**
-     * Admin notice for missing BuddyBoss
+     * Admin notice for missing BuddyBoss.
      */
     public function buddyboss_missing_notice() {
         ?>
