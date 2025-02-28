@@ -5,10 +5,33 @@
  * @package CheckStep_Integration
  */
 
-require_once dirname(__FILE__) . '/class-base-test-case.php';
-require_once dirname(__DIR__) . '/includes/wordpress-stubs.php';
-require_once dirname(__DIR__) . '/includes/class-checkstep-api.php';
-require_once dirname(__DIR__) . '/includes/class-checkstep-moderation.php';
+// Enable error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Define paths explicitly
+define('TEST_ROOT', dirname(__FILE__));
+define('PLUGIN_ROOT', dirname(TEST_ROOT));
+
+// Verify file paths
+$required_files = array(
+    TEST_ROOT . '/class-base-test-case.php',
+    PLUGIN_ROOT . '/includes/wordpress-stubs.php',
+    PLUGIN_ROOT . '/includes/class-checkstep-api.php',
+    PLUGIN_ROOT . '/includes/class-checkstep-moderation.php',
+);
+
+foreach ($required_files as $file) {
+    if (!file_exists($file)) {
+        die("Required file not found: {$file}\n");
+    }
+}
+
+// Load dependencies
+require_once TEST_ROOT . '/class-base-test-case.php';
+require_once PLUGIN_ROOT . '/includes/wordpress-stubs.php';
+require_once PLUGIN_ROOT . '/includes/class-checkstep-api.php';
+require_once PLUGIN_ROOT . '/includes/class-checkstep-moderation.php';
 
 /**
  * Class Test_CheckStep_Moderation
