@@ -73,6 +73,29 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
             'methods' => 'POST',
             'callback' => array($this, 'handle_decision_webhook'),
             'permission_callback' => array($this, 'verify_webhook'),
+            'args' => array(
+                'decision_id' => array(
+                    'required' => true,
+                    'type' => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ),
+                'content_id' => array(
+                    'required' => true,
+                    'type' => 'integer',
+                    'sanitize_callback' => 'absint',
+                ),
+                'action' => array(
+                    'required' => true,
+                    'type' => 'string',
+                    'enum' => array('delete', 'hide', 'warn', 'ban_user'),
+                    'sanitize_callback' => 'sanitize_text_field',
+                ),
+                'reason' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ),
+            ),
         ));
     }
 
@@ -80,20 +103,40 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
      * Verify webhook request
      *
      * @param WP_REST_Request $request Request object
-     * @return bool
+     * @return bool|WP_Error
      */
     public function verify_webhook($request) {
         $signature = $request->get_header('X-CheckStep-Signature');
         $webhook_secret = get_option('checkstep_webhook_secret');
 
-        if (!$signature || !$webhook_secret) {
-            return false;
+        if (!$signature) {
+            return new WP_Error(
+                'missing_signature',
+                'Missing CheckStep signature header',
+                array('status' => 401)
+            );
+        }
+
+        if (!$webhook_secret) {
+            return new WP_Error(
+                'missing_secret',
+                'Webhook secret not configured',
+                array('status' => 500)
+            );
         }
 
         $payload = $request->get_body();
         $expected_signature = hash_hmac('sha256', $payload, $webhook_secret);
 
-        return hash_equals($expected_signature, $signature);
+        if (!hash_equals($expected_signature, $signature)) {
+            return new WP_Error(
+                'invalid_signature',
+                'Invalid CheckStep signature',
+                array('status' => 401)
+            );
+        }
+
+        return true;
     }
 
     /**
@@ -103,15 +146,35 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
      * @return WP_REST_Response|WP_Error
      */
     public function handle_decision_webhook($request) {
-        $payload = $request->get_json_params();
+        $params = $request->get_params();
 
-        if (!isset($payload['decision_id']) || !isset($payload['content_id'])) {
-            return new WP_Error('invalid_payload', 'Invalid decision payload', array('status' => 400));
-        }
+        // Parameters are already validated and sanitized by register_rest_route args
+        $decision_id = $params['decision_id'];
+        $content_id = $params['content_id'];
+        $action = $params['action'];
+        $reason = isset($params['reason']) ? $params['reason'] : '';
 
-        wp_schedule_single_event(time(), 'checkstep_handle_decision', array($payload));
+        // Schedule async processing
+        wp_schedule_single_event(
+            time(),
+            'checkstep_handle_decision',
+            array(
+                array(
+                    'decision_id' => $decision_id,
+                    'content_id' => $content_id,
+                    'action' => $action,
+                    'reason' => $reason,
+                )
+            )
+        );
 
-        return new WP_REST_Response(array('status' => 'queued'), 200);
+        return new WP_REST_Response(
+            array(
+                'status' => 'queued',
+                'decision_id' => $decision_id,
+            ),
+            202
+        );
     }
 
     /**
@@ -120,9 +183,13 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
      * @param array $decision_data Decision data from CheckStep
      */
     public function handle_moderation_decision($decision_data) {
-        $content_id = $decision_data['content_id'];
-        $action = $decision_data['action'];
-        $reason = $decision_data['reason'];
+        $content_id = absint($decision_data['content_id']);
+        $action = sanitize_text_field($decision_data['action']);
+        $reason = sanitize_text_field($decision_data['reason']);
+
+        if (!$content_id) {
+            return;
+        }
 
         switch ($action) {
             case 'delete':
@@ -134,15 +201,27 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
                 break;
 
             case 'warn':
-                $this->add_content_warning($content_id, $reason);
+                if ($reason) {
+                    $this->add_content_warning($content_id, $reason);
+                }
                 break;
 
             case 'ban_user':
-                $this->ban_user($content_id);
+                $user_id = $this->get_content_owner_id($content_id);
+                if ($user_id) {
+                    $this->ban_user($user_id);
+                }
                 break;
         }
 
-        do_action('checkstep_decision_handled', $decision_data);
+        /**
+         * Action fired after a CheckStep moderation decision is handled
+         *
+         * @param array $decision_data The decision data
+         * @param string $action The action taken
+         * @param int $content_id The content ID
+         */
+        do_action('checkstep_decision_handled', $decision_data, $action, $content_id);
     }
 
     /**
@@ -166,7 +245,7 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
         ));
 
         if (!empty($moderated_content)) {
-            $where_sql .= " AND t.id NOT IN (" . implode(',', array_map('intval', $moderated_content)) . ")";
+            $where_sql .= " AND t.id NOT IN (" . implode(',', array_map('absint', $moderated_content)) . ")";
         }
 
         return $where_sql;
@@ -179,7 +258,7 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
      * @return string
      */
     public static function get_permalink($content_id) {
-        return get_permalink($content_id);
+        return get_permalink(absint($content_id));
     }
 
     /**
@@ -189,8 +268,8 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
      * @return int
      */
     public static function get_content_owner_id($content_id) {
-        $post = get_post($content_id);
-        return $post ? $post->post_author : 0;
+        $post = get_post(absint($content_id));
+        return $post ? absint($post->post_author) : 0;
     }
 
     /**
@@ -199,7 +278,8 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
      * @param int $content_id Content ID
      */
     private function delete_content($content_id) {
-        if (is_numeric($content_id)) {
+        $content_id = absint($content_id);
+        if ($content_id) {
             wp_delete_post($content_id, true);
         }
     }
@@ -210,10 +290,13 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
      * @param int $content_id Content ID
      */
     private function hide_content($content_id) {
-        wp_update_post(array(
-            'ID' => $content_id,
-            'post_status' => 'private'
-        ));
+        $content_id = absint($content_id);
+        if ($content_id) {
+            wp_update_post(array(
+                'ID' => $content_id,
+                'post_status' => 'private'
+            ));
+        }
     }
 
     /**
@@ -223,7 +306,11 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
      * @param string $warning Warning message
      */
     private function add_content_warning($content_id, $warning) {
-        wp_set_object_terms($content_id, $warning, 'content-warning', true);
+        $content_id = absint($content_id);
+        $warning = sanitize_text_field($warning);
+        if ($content_id && $warning) {
+            wp_set_object_terms($content_id, $warning, 'content-warning', true);
+        }
     }
 
     /**
@@ -232,7 +319,8 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
      * @param int $user_id User ID
      */
     private function ban_user($user_id) {
-        if (function_exists('bp_moderation_add')) {
+        $user_id = absint($user_id);
+        if ($user_id && function_exists('bp_moderation_add')) {
             bp_moderation_add(array(
                 'user_id' => $user_id,
                 'type' => 'user',

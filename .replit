@@ -15,6 +15,10 @@ author = "agent"
 task = "workflow.run"
 args = "PHP Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "PHP Tests"
+
 [[workflows.workflow]]
 name = "PHP Server"
 author = "agent"
@@ -29,6 +33,20 @@ task = "packager.installForAll"
 task = "shell.exec"
 args = "php -S 0.0.0.0:5000"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "PHP Tests"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd /home/runner/$(basename $PWD) && php -d display_errors=1 tests/test-moderation.php"
 
 [deployment]
 run = ["sh", "-c", "php -S 0.0.0.0:5000"]
