@@ -54,6 +54,26 @@ define('CHECKSTEP_API_KEY', 'your-api-key');
 define('CHECKSTEP_WEBHOOK_SECRET', 'your-webhook-secret');
 ```
 
+### Webhook Events
+
+The plugin processes two types of webhook events from CheckStep:
+
+1. **Decision Taken**
+   - Triggers immediate moderation actions
+   - Handles content deletion, hiding, warnings
+   - Manages user bans and restrictions
+
+2. **Incident Closed**
+   - Manages user notifications
+   - Updates appeal statuses
+   - Provides closure information to users
+
+Future Enhancement Planned:
+- **Content Analysed** (Not Yet Implemented)
+  - Could enable early intervention
+  - Potential for automated takedowns pending review
+  - Risk score tracking and preemptive warnings
+
 ### Available Hooks
 
 ```php
