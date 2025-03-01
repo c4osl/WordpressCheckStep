@@ -18,17 +18,21 @@ if (!$api_key) {
 echo "✓ API key found\n";
 
 // API configuration
-$api_url = 'https://api.checkstep.com/v1';
+$api_url = 'https://api.checkstep.com/api/v2';
 
 // Test content
 $test_content = json_encode([
-    'id' => 'test-' . time(),
-    'type' => 'text',
-    'content' => 'This is a test message to verify API connectivity.',
-    'metadata' => [
-        'source' => 'api_test',
-        'timestamp' => date('c')
-    ]
+    'id' => 'test-' . uniqid(),
+    'author' => 'test-author-' . uniqid(),
+    'type' => 'comment',
+    'fields' => [
+        [
+            'id' => 'content',
+            'type' => 'text',
+            'src' => 'This is a test message to verify API connectivity.'
+        ]
+    ],
+    'callback_url' => 'https://fanrefuge.com/wp-json/checkstep/v1/decisions'
 ]);
 
 echo "Attempting to submit content to CheckStep API...\n";
@@ -66,7 +70,7 @@ curl_close($ch);
 echo "HTTP Status Code: {$http_code}\n";
 echo "Response body: {$response}\n\n";
 
-if ($http_code === 200) {
+if ($http_code === 200 || $http_code === 201 || $http_code === 202) {
     echo "✓ Successfully submitted content to CheckStep\n";
     $response_data = json_decode($response, true);
     if (isset($response_data['id'])) {
@@ -78,9 +82,13 @@ if ($http_code === 200) {
         $error_data = json_decode($response, true);
         if (isset($error_data['error'])) {
             echo "Error message: {$error_data['error']}\n";
+        } elseif (isset($error_data['detail'])) {
+            echo "Error detail: {$error_data['detail']}\n";
         }
     }
     exit(1);
 }
 
 echo "\nTest completed.\n";
+
+?>
