@@ -88,6 +88,20 @@ if (!class_exists('WP_REST_Request')) {
     }
 }
 
+// Mock BuddyBoss notification function
+if (!function_exists('bp_notifications_add_notification')) {
+    function bp_notifications_add_notification($args) {
+        echo sprintf("[Mock BuddyBoss] Adding notification: %s\n", json_encode($args));
+        return true;
+    }
+}
+
+if (!function_exists('bp_core_current_time')) {
+    function bp_core_current_time() {
+        return date('Y-m-d H:i:s');
+    }
+}
+
 echo "Testing webhook handler...\n\n";
 
 // Test decision taken payload - No Action
@@ -104,6 +118,14 @@ $decision_payload = array(
     'content_id' => '12345',
     'action' => 'hide',
     'reason' => 'Contains inappropriate content'
+);
+
+// Test decision taken payload - Appeal Upheld
+$upheld_payload = array(
+    'event_type' => 'decision_taken',
+    'content_id' => '12345',
+    'action' => 'upheld',
+    'reason' => 'Appeal review complete - original decision stands'
 );
 
 // Test incident closed payload
@@ -130,6 +152,13 @@ try {
     // Test moderation decision
     echo "\nTesting hide content decision...\n";
     $request->set_body(json_encode($decision_payload));
+    $response = $handler->handle_webhook($request);
+    echo "Response:\n";
+    print_r($response);
+
+    // Test appeal upheld decision
+    echo "\nTesting appeal upheld decision...\n";
+    $request->set_body(json_encode($upheld_payload));
     $response = $handler->handle_webhook($request);
     echo "Response:\n";
     print_r($response);

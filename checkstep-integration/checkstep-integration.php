@@ -185,14 +185,12 @@ class CheckStep_Integration extends BP_Integration {
     /**
      * Check if required plugins are active.
      *
-     * Verifies that BuddyBoss Platform is installed and activated.
-     *
      * @since 1.0.0
      * @access private
      * @return bool True if requirements are met, false otherwise
      */
     private function check_requirements() {
-        if (!class_exists('BuddyBoss_Platform')) {
+        if (!function_exists('bp_get_option') && !defined('BP_PLATFORM_VERSION') && !defined('BUDDYBOSS_VERSION')) {
             CheckStep_Logger::warning('BuddyBoss Platform not found');
             add_action('admin_notices', array($this, 'buddyboss_missing_notice'));
             return false;

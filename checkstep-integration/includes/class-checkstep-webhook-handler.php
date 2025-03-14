@@ -196,6 +196,15 @@ class CheckStep_Webhook_Handler {
                 ));
                 break;
 
+            case 'upheld':
+                // Appeal was refused, notify user and log outcome
+                $this->notify_user_about_appeal($content_id, $reason);
+                CheckStep_Logger::info('Moderation appeal refused', array(
+                    'content_id' => $content_id,
+                    'reason' => $reason
+                ));
+                break;
+
             default:
                 throw new Exception("Unsupported action: {$action}");
         }
@@ -352,6 +361,64 @@ class CheckStep_Webhook_Handler {
             'content_id' => $content_id,
             'resolution' => $resolution
         ));
+    }
+
+    /**
+     * Get content author ID
+     * @param int|string $content_id
+     * @return int|null
+     */
+    private function get_content_author($content_id) {
+        // Replace with your actual implementation to fetch author ID
+        // This is a placeholder for demonstration purposes
+        return 1; // Replace with actual user ID retrieval logic
+    }
+
+    /**
+     * Notify user about appeal decision
+     *
+     * @param string|int $content_id Content ID
+     * @param string $reason Reason for upholding the moderation decision
+     */
+    private function notify_user_about_appeal($content_id, $reason) {
+        try {
+            $user_id = $this->get_content_author($content_id);
+            if (!$user_id) {
+                throw new Exception("Could not find author for content ID: {$content_id}");
+            }
+
+            // Send notification through BuddyBoss notification system
+            if (function_exists('bp_notifications_add_notification')) {
+                bp_notifications_add_notification(array(
+                    'user_id'           => $user_id,
+                    'item_id'           => $content_id,
+                    'component_name'    => 'checkstep',
+                    'component_action'  => 'appeal_refused',
+                    'date_notified'     => bp_core_current_time(),
+                    'is_new'           => 1,
+                    'allow_duplicate'   => false,
+                    'title'            => __('Appeal Decision', 'checkstep-integration'),
+                    'content'          => sprintf(
+                        __('Your appeal for content #%d has been reviewed and the original moderation decision has been upheld. Reason: %s', 'checkstep-integration'),
+                        $content_id,
+                        $reason
+                    )
+                ));
+
+                CheckStep_Logger::info('Appeal notification sent to user', array(
+                    'user_id' => $user_id,
+                    'content_id' => $content_id
+                ));
+            } else {
+                throw new Exception('BuddyBoss notifications system not available');
+            }
+        } catch (Exception $e) {
+            CheckStep_Logger::error('Failed to send appeal notification', array(
+                'error' => $e->getMessage(),
+                'content_id' => $content_id,
+                'user_id' => $user_id ?? 'unknown'
+            ));
+        }
     }
 }
 
