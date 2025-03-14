@@ -34,6 +34,14 @@ if (!function_exists('bp_moderation_hide')) {
     }
 }
 
+// Mock BuddyBoss moderation function
+if (!function_exists('bp_moderation_unhide')) {
+    function bp_moderation_unhide($args) {
+        echo sprintf("[Mock BuddyBoss] Unhiding content: %s\n", json_encode($args));
+        return true;
+    }
+}
+
 if (!function_exists('bp_activity_get')) {
     function bp_activity_get($activity_id) {
         return false;
@@ -57,6 +65,40 @@ if (!function_exists('bp_get_document')) {
         return false;
     }
 }
+
+// Mock BuddyBoss functions if not in WordPress environment
+if (!function_exists('bp_notifications_add_notification')) {
+    function bp_notifications_add_notification($args) {
+        echo sprintf("[Mock BuddyBoss] Adding notification: %s\n", json_encode($args));
+        return true;
+    }
+}
+
+if (!function_exists('bp_core_current_time')) {
+    function bp_core_current_time() {
+        return date('Y-m-d H:i:s');
+    }
+}
+
+if (!function_exists('get_post_field')) {
+    function get_post_field($field, $post_id) {
+        if ($field === 'post_author') {
+            return 1; // Mock author ID
+        }
+        return null;
+    }
+}
+
+if (!function_exists('bp_activity_get_specific')) {
+    function bp_activity_get_specific($args) {
+        return array(
+            'activities' => array(
+                (object)array('user_id' => 1)
+            )
+        );
+    }
+}
+
 
 // Mock WP_REST_Request class if not available
 if (!class_exists('WP_REST_Request')) {
@@ -88,20 +130,6 @@ if (!class_exists('WP_REST_Request')) {
     }
 }
 
-// Mock BuddyBoss notification function
-if (!function_exists('bp_notifications_add_notification')) {
-    function bp_notifications_add_notification($args) {
-        echo sprintf("[Mock BuddyBoss] Adding notification: %s\n", json_encode($args));
-        return true;
-    }
-}
-
-if (!function_exists('bp_core_current_time')) {
-    function bp_core_current_time() {
-        return date('Y-m-d H:i:s');
-    }
-}
-
 echo "Testing webhook handler...\n\n";
 
 // Test decision taken payload - No Action
@@ -126,6 +154,14 @@ $upheld_payload = array(
     'content_id' => '12345',
     'action' => 'upheld',
     'reason' => 'Appeal review complete - original decision stands'
+);
+
+// Test decision taken payload - Appeal Overturned
+$overturn_payload = array(
+    'event_type' => 'decision_taken',
+    'content_id' => '12345',
+    'action' => 'overturn',
+    'reason' => 'Appeal review complete - decision overturned'
 );
 
 // Test incident closed payload
@@ -159,6 +195,13 @@ try {
     // Test appeal upheld decision
     echo "\nTesting appeal upheld decision...\n";
     $request->set_body(json_encode($upheld_payload));
+    $response = $handler->handle_webhook($request);
+    echo "Response:\n";
+    print_r($response);
+
+    // Test appeal overturned decision
+    echo "\nTesting appeal overturned decision...\n";
+    $request->set_body(json_encode($overturn_payload));
     $response = $handler->handle_webhook($request);
     echo "Response:\n";
     print_r($response);

@@ -56,23 +56,27 @@ define('CHECKSTEP_WEBHOOK_SECRET', 'your-webhook-secret');
 
 ### Webhook Events
 
-The plugin processes two types of webhook events from CheckStep:
+The plugin processes the following webhook events from CheckStep:
 
 1. **Decision Taken**
-   - Triggers immediate moderation actions
-   - Handles content deletion, hiding, warnings
-   - Manages user bans and restrictions
+   - **No Action**: Content meets community guidelines, no moderation needed
+   - **Hide**: Content is hidden from public view using BuddyBoss moderation
+   - **Upheld**: Appeal was refused, user is notified via BuddyBoss notifications
+   - **Overturn**: Appeal was accepted, content is restored and user is notified
+   - **Content Warning**: (Not Yet Implemented) Adds content warning tags
+   - **Ban User**: (Not Yet Implemented) Restricts user access
 
 2. **Incident Closed**
    - Manages user notifications
    - Updates appeal statuses
    - Provides closure information to users
 
-Future Enhancement Planned:
+Future Enhancement:
 - **Content Analysed** (Not Yet Implemented)
   - Could enable early intervention
   - Potential for automated takedowns pending review
   - Risk score tracking and preemptive warnings
+
 
 ### Available Hooks
 

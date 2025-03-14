@@ -197,12 +197,97 @@ class CheckStep_Webhook_Handler {
                 break;
 
             case 'upheld':
-                // Appeal was refused, notify user and log outcome
-                $this->notify_user_about_appeal($content_id, $reason);
-                CheckStep_Logger::info('Moderation appeal refused', array(
-                    'content_id' => $content_id,
-                    'reason' => $reason
-                ));
+                try {
+                    $user_id = $this->get_content_author($content_id);
+                    if (!$user_id) {
+                        throw new Exception("Could not find author for content ID: {$content_id}");
+                    }
+
+                    // Send notification through BuddyBoss notification system
+                    if (function_exists('bp_notifications_add_notification')) {
+                        bp_notifications_add_notification(array(
+                            'user_id'           => $user_id,
+                            'item_id'           => $content_id,
+                            'component_name'    => 'checkstep',
+                            'component_action'  => 'appeal_refused',
+                            'date_notified'     => bp_core_current_time(),
+                            'is_new'           => 1,
+                            'allow_duplicate'   => false,
+                            'description'       => sprintf(
+                                'Your appeal for content %d has been reviewed and the original moderation decision has been upheld. Reason: %s',
+                                $content_id,
+                                $reason
+                            )
+                        ));
+
+                        CheckStep_Logger::info('Appeal notification sent to user', array(
+                            'user_id' => $user_id,
+                            'content_id' => $content_id,
+                            'reason' => $reason
+                        ));
+                    } else {
+                        throw new Exception('BuddyBoss notifications system not available');
+                    }
+                } catch (Exception $e) {
+                    CheckStep_Logger::error('Failed to send appeal notification', array(
+                        'error' => $e->getMessage(),
+                        'content_id' => $content_id
+                    ));
+                }
+                break;
+
+            case 'overturn':
+                try {
+                    $user_id = $this->get_content_author($content_id);
+                    if (!$user_id) {
+                        throw new Exception("Could not find author for content ID: {$content_id}");
+                    }
+
+                    // Unhide content using BuddyBoss moderation system
+                    $content_type = $this->determine_content_type($content_id);
+                    if (function_exists('bp_moderation_unhide')) {
+                        bp_moderation_unhide(array(
+                            'content_id' => $content_id,
+                            'content_type' => $this->get_moderation_type($content_type)
+                        ));
+
+                        CheckStep_Logger::info('Content restored after successful appeal', array(
+                            'content_id' => $content_id,
+                            'content_type' => $content_type
+                        ));
+                    } else {
+                        throw new Exception('BuddyBoss moderation system not available');
+                    }
+
+                    // Notify user about successful appeal
+                    if (function_exists('bp_notifications_add_notification')) {
+                        bp_notifications_add_notification(array(
+                            'user_id'           => $user_id,
+                            'item_id'           => $content_id,
+                            'component_name'    => 'checkstep',
+                            'component_action'  => 'appeal_accepted',
+                            'date_notified'     => bp_core_current_time(),
+                            'is_new'           => 1,
+                            'allow_duplicate'   => false,
+                            'description'       => sprintf(
+                                'Your appeal for content %d has been reviewed and accepted. Your content has been restored.',
+                                $content_id
+                            )
+                        ));
+
+                        CheckStep_Logger::info('Appeal success notification sent to user', array(
+                            'user_id' => $user_id,
+                            'content_id' => $content_id
+                        ));
+                    } else {
+                        throw new Exception('BuddyBoss notifications system not available');
+                    }
+                } catch (Exception $e) {
+                    CheckStep_Logger::error('Failed to process appeal overturn', array(
+                        'error' => $e->getMessage(),
+                        'content_id' => $content_id
+                    ));
+                }
                 break;
 
             default:
@@ -364,15 +449,69 @@ class CheckStep_Webhook_Handler {
     }
 
     /**
-     * Get content author ID
-     * @param int|string $content_id
-     * @return int|null
+     * Get content author ID based on content type
+     *
+     * @param string|int $content_id Content ID
+     * @return int|null User ID of the content author
      */
     private function get_content_author($content_id) {
-        // Replace with your actual implementation to fetch author ID
-        // This is a placeholder for demonstration purposes
-        return 1; // Replace with actual user ID retrieval logic
+        $content_type = $this->determine_content_type($content_id);
+
+        switch ($content_type) {
+            case 'post':
+                return get_post_field('post_author', $content_id);
+
+            case 'activity':
+                $activity = bp_activity_get_specific(array('activity_ids' => array($content_id)));
+                return $activity['activities'][0]->user_id ?? null;
+
+            case 'media':
+                if (function_exists('bp_get_media')) {
+                    $media = bp_get_media($content_id);
+                    return $media ? $media->user_id : null;
+                }
+                break;
+
+            case 'video':
+                if (function_exists('bp_get_video')) {
+                    $video = bp_get_video($content_id);
+                    return $video ? $video->user_id : null;
+                }
+                break;
+
+            case 'document':
+                if (function_exists('bp_get_document')) {
+                    $document = bp_get_document($content_id);
+                    return $document ? $document->user_id : null;
+                }
+                break;
+        }
+
+        return null;
     }
+
+    /**
+     *Helper function to get the correct moderation type.
+     * @param string $content_type
+     * @return string
+     */
+    private function get_moderation_type(string $content_type): string {
+        switch ($content_type) {
+            case 'post':
+                return BP_Moderation_Posts::$moderation_type;
+            case 'activity':
+                return BP_Moderation_Activity::$moderation_type;
+            case 'media':
+                return BP_Moderation_Media::$moderation_type;
+            case 'video':
+                return BP_Moderation_Video::$moderation_type;
+            case 'document':
+                return BP_Moderation_Document::$moderation_type;
+            default:
+                throw new Exception("Unsupported content type: {$content_type}");
+        }
+    }
+
 
     /**
      * Notify user about appeal decision
