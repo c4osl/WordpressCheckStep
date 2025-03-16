@@ -46,7 +46,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd checkstep-integration && php -d display_errors=1 tests/test-moderation.php"
+args = "cd checkstep-integration && php -d display_errors=1 tests/test-queue-handler.php"
 
 [deployment]
 run = ["sh", "-c", "php -S 0.0.0.0:5000 -t checkstep-integration/"]

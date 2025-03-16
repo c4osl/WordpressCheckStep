@@ -23,6 +23,58 @@ Integrate CheckStep's AI-powered content moderation with your BuddyBoss communit
 - BuddyBoss Platform
 - CheckStep API credentials
 
+## Supported Content Types
+
+The plugin supports moderation of the following content types:
+
+### Activity Stream Posts
+- Text content with rich media support
+- Author information and roles
+- Group context (if applicable)
+- Parent post references for replies
+- Attached media (images, videos, documents)
+
+### Forum Posts
+- Post content with formatting
+- Thread and forum context
+- Author details
+- Media attachments
+- Parent post references
+
+### Group Discussions
+- Discussion content
+- Group context and metadata
+- Author information
+- Attached media support
+- Content hierarchy
+
+### User Blog Posts
+- Post title and content
+- Author information
+- Content warning taxonomies
+- Embedded media
+- File attachments
+
+### Standalone Media
+1. **Images**
+   - Image file with metadata
+   - Alt text and captions
+   - Author information
+   - Parent content reference (if embedded)
+
+2. **Videos**
+   - Video file with metadata
+   - Title and description
+   - Author information
+   - Parent content reference (if embedded)
+
+Each content type is processed asynchronously and supports:
+- Text analysis for policy violations
+- Image/video scanning for inappropriate content
+- Author context for moderation decisions
+- Content warning tags
+- Parent-child relationships
+
 ## 🔧 Installation
 
 1. Download the latest release
