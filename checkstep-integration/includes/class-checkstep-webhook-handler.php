@@ -325,59 +325,150 @@ class CheckStep_Webhook_Handler {
     }
 
     /**
+     * Suspend a user account
+     *
+     * @param int $user_id User ID to suspend
+     */
+    private function suspend_user($user_id) {
+        try {
+            if (!function_exists('bp_moderation_update_status')) {
+                throw new Exception('BuddyBoss moderation system not available');
+            }
+
+            // Suspend the user using BuddyBoss moderation
+            bp_moderation_update_status(array(
+                'user_id' => $user_id,
+                'action' => 'suspend'
+            ));
+
+            // Log the action
+            CheckStep_Logger::info('User suspended by CheckStep moderation', array(
+                'user_id' => $user_id
+            ));
+
+            // Send notification to user about suspension
+            if (function_exists('bp_notifications_add_notification')) {
+                bp_notifications_add_notification(array(
+                    'user_id'           => $user_id,
+                    'item_id'           => 0,
+                    'component_name'    => 'checkstep',
+                    'component_action'  => 'account_suspended',
+                    'date_notified'     => bp_core_current_time(),
+                    'is_new'           => 1,
+                    'allow_duplicate'   => false,
+                    'title'            => __('Account Suspended', 'checkstep-integration'),
+                    'content'          => __('Your account has been suspended due to a violation of our community guidelines.', 'checkstep-integration')
+                ));
+            }
+        } catch (Exception $e) {
+            CheckStep_Logger::error('Failed to suspend user', array(
+                'error' => $e->getMessage(),
+                'user_id' => $user_id
+            ));
+            throw $e;
+        }
+    }
+
+    /**
+     * Notify user about incident resolution
+     *
+     * @param string|int $content_id Content ID
+     * @param string $resolution Resolution details
+     */
+    private function notify_user_about_resolution($content_id, $resolution) {
+        try {
+            $user_id = $this->get_content_author($content_id);
+            if (!$user_id) {
+                throw new Exception("Could not find author for content ID: {$content_id}");
+            }
+
+            if (!function_exists('bp_notifications_add_notification')) {
+                throw new Exception('BuddyBoss notifications system not available');
+            }
+
+            // Send notification through BuddyBoss notification system
+            bp_notifications_add_notification(array(
+                'user_id'           => $user_id,
+                'item_id'           => $content_id,
+                'component_name'    => 'checkstep',
+                'component_action'  => 'moderation_resolved',
+                'date_notified'     => bp_core_current_time(),
+                'is_new'           => 1,
+                'allow_duplicate'   => false,
+                'title'            => __('Moderation Update', 'checkstep-integration'),
+                'content'          => sprintf(
+                    __('The moderation review for your content (ID: %d) has been completed. Resolution: %s', 'checkstep-integration'),
+                    $content_id,
+                    $resolution
+                )
+            ));
+
+            CheckStep_Logger::info('Resolution notification sent to user', array(
+                'user_id' => $user_id,
+                'content_id' => $content_id,
+                'resolution' => $resolution
+            ));
+        } catch (Exception $e) {
+            CheckStep_Logger::error('Failed to send resolution notification', array(
+                'error' => $e->getMessage(),
+                'content_id' => $content_id,
+                'resolution' => $resolution
+            ));
+            throw $e;
+        }
+    }
+
+    /**
      * Unpublish content using BuddyBoss moderation system
      *
      * @param string|int $content_id Content ID
      * @throws Exception If content type cannot be determined or is unsupported
      */
     private function unpublish_content($content_id) {
-        $content_type = $this->determine_content_type($content_id);
+        try {
+            $content_type = $this->determine_content_type($content_id);
+            $moderation_type = $this->get_moderation_type($content_type);
 
-        // Use BuddyBoss's moderation system
-        switch ($content_type) {
-            case 'post':
-                bp_moderation_hide(array(
-                    'content_id' => $content_id,
-                    'content_type' => BP_Moderation_Posts::$moderation_type
+            if (!function_exists('bp_moderation_hide')) {
+                throw new Exception('BuddyBoss moderation system not available');
+            }
+
+            // Hide the content using BuddyBoss moderation
+            bp_moderation_hide(array(
+                'content_id' => $content_id,
+                'content_type' => $moderation_type
+            ));
+
+            CheckStep_Logger::info('Content unpublished via BuddyBoss moderation', array(
+                'content_id' => $content_id,
+                'content_type' => $content_type
+            ));
+
+            // Notify the content author
+            $user_id = $this->get_content_author($content_id);
+            if ($user_id && function_exists('bp_notifications_add_notification')) {
+                bp_notifications_add_notification(array(
+                    'user_id'           => $user_id,
+                    'item_id'           => $content_id,
+                    'component_name'    => 'checkstep',
+                    'component_action'  => 'content_hidden',
+                    'date_notified'     => bp_core_current_time(),
+                    'is_new'           => 1,
+                    'allow_duplicate'   => false,
+                    'title'            => __('Content Hidden', 'checkstep-integration'),
+                    'content'          => sprintf(
+                        __('Your content (ID: %d) has been hidden due to a potential violation of our community guidelines.', 'checkstep-integration'),
+                        $content_id
+                    )
                 ));
-                break;
-
-            case 'activity':
-                bp_moderation_hide(array(
-                    'content_id' => $content_id,
-                    'content_type' => BP_Moderation_Activity::$moderation_type
-                ));
-                break;
-
-            case 'media':
-                bp_moderation_hide(array(
-                    'content_id' => $content_id,
-                    'content_type' => BP_Moderation_Media::$moderation_type
-                ));
-                break;
-
-            case 'video':
-                bp_moderation_hide(array(
-                    'content_id' => $content_id,
-                    'content_type' => BP_Moderation_Video::$moderation_type
-                ));
-                break;
-
-            case 'document':
-                bp_moderation_hide(array(
-                    'content_id' => $content_id,
-                    'content_type' => BP_Moderation_Document::$moderation_type
-                ));
-                break;
-
-            default:
-                throw new Exception("Unsupported content type: {$content_type}");
+            }
+        } catch (Exception $e) {
+            CheckStep_Logger::error('Failed to unpublish content', array(
+                'error' => $e->getMessage(),
+                'content_id' => $content_id
+            ));
+            throw $e;
         }
-
-        CheckStep_Logger::info("Content unpublished via BuddyBoss moderation", array(
-            'content_id' => $content_id,
-            'content_type' => $content_type
-        ));
     }
 
     /**
@@ -429,24 +520,6 @@ class CheckStep_Webhook_Handler {
         ));
     }
 
-    /**
-     * Mock function to simulate user suspension
-     */
-    private function suspend_user($user_id) {
-        CheckStep_Logger::info("Mock: User suspended", array(
-            'user_id' => $user_id
-        ));
-    }
-
-    /**
-     * Mock function to simulate user notification
-     */
-    private function notify_user_about_resolution($content_id, $resolution) {
-        CheckStep_Logger::info("Mock: User notified about resolution", array(
-            'content_id' => $content_id,
-            'resolution' => $resolution
-        ));
-    }
 
     /**
      * Get content author ID based on content type

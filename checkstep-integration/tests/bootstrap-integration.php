@@ -85,6 +85,65 @@ if (!function_exists('site_url')) {
     }
 }
 
+// Mock BuddyBoss moderation functions
+if (!function_exists('bp_moderation_hide')) {
+    function bp_moderation_hide($args) {
+        CheckStep_Logger::info('Mock: Content hidden via BuddyBoss moderation', $args);
+        return true;
+    }
+}
+
+if (!function_exists('bp_moderation_update_status')) {
+    function bp_moderation_update_status($args) {
+        CheckStep_Logger::info('Mock: User status updated via BuddyBoss moderation', $args);
+        return true;
+    }
+}
+
+if (!function_exists('bp_notifications_add_notification')) {
+    function bp_notifications_add_notification($args) {
+        CheckStep_Logger::info('Mock: BuddyBoss notification sent', $args);
+        return true;
+    }
+}
+
+if (!function_exists('bp_core_current_time')) {
+    function bp_core_current_time() {
+        return date('Y-m-d H:i:s');
+    }
+}
+
+// Mock BuddyBoss moderation type constants
+if (!class_exists('BP_Moderation_Posts')) {
+    class BP_Moderation_Posts {
+        public static $moderation_type = 'post';
+    }
+}
+
+if (!class_exists('BP_Moderation_Activity')) {
+    class BP_Moderation_Activity {
+        public static $moderation_type = 'activity';
+    }
+}
+
+if (!class_exists('BP_Moderation_Media')) {
+    class BP_Moderation_Media {
+        public static $moderation_type = 'media';
+    }
+}
+
+if (!class_exists('BP_Moderation_Video')) {
+    class BP_Moderation_Video {
+        public static $moderation_type = 'video';
+    }
+}
+
+if (!class_exists('BP_Moderation_Document')) {
+    class BP_Moderation_Document {
+        public static $moderation_type = 'document';
+    }
+}
+
 // Mock WordPress HTTP API functions
 if (!function_exists('wp_remote_post')) {
     function wp_remote_post($url, $args) {

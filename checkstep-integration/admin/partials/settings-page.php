@@ -34,7 +34,7 @@ if (!defined('WPINC')) {
         </p>
     </div>
 
-    <form action="options.php" method="post">
+    <form action="options.php" method="post" id="checkstep-settings-form">
         <?php
         settings_fields('checkstep_settings');
         do_settings_sections('checkstep-settings');
@@ -54,6 +54,12 @@ if (!defined('WPINC')) {
                 echo '</p></div>';
             }
             ?>
+            <p>
+                <button type="button" class="button button-secondary" id="test-checkstep-connection">
+                    <?php _e('Test Connection', 'checkstep-integration'); ?>
+                </button>
+                <span class="checkstep-status"></span>
+            </p>
         </div>
 
         <div class="card">
@@ -80,12 +86,23 @@ if (!defined('WPINC')) {
                 "SELECT COUNT(*) FROM {$wpdb->prefix}checkstep_queue WHERE status = 'pending'"
             );
             ?>
-            <p>
-                <?php printf(
-                    __('There are currently %d items waiting to be processed.', 'checkstep-integration'),
-                    $pending_count
-                ); ?>
-            </p>
+            <div class="queue-status">
+                <p>
+                    <span class="queue-status-count"><?php echo intval($pending_count); ?></span>
+                    <?php _e('items in queue', 'checkstep-integration'); ?>
+                </p>
+                <p class="queue-last-processed">
+                    <?php 
+                    $last_processed = get_option('checkstep_last_queue_process');
+                    if ($last_processed) {
+                        printf(
+                            __('Last processed: %s', 'checkstep-integration'),
+                            date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($last_processed))
+                        );
+                    }
+                    ?>
+                </p>
+            </div>
         </div>
 
         <?php submit_button(); ?>
@@ -98,28 +115,4 @@ if (!defined('WPINC')) {
             <a href="https://docs.checkstep.com" target="_blank">docs.checkstep.com</a>
         </p>
     </div>
-
-    <style>
-        .card {
-            background: #fff;
-            border: 1px solid #ccd0d4;
-            border-radius: 4px;
-            margin-top: 20px;
-            padding: 20px;
-            box-shadow: 0 1px 1px rgba(0,0,0,.04);
-        }
-        .card h2, .card h3 {
-            margin-top: 0;
-        }
-        .ul-disc {
-            list-style: disc inside;
-            margin-left: 20px;
-        }
-        code {
-            display: block;
-            padding: 10px;
-            background: #f0f0f1;
-            margin: 10px 0;
-        }
-    </style>
 </div>

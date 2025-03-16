@@ -1,30 +1,62 @@
 /**
  * CheckStep Integration Admin Styles
- *
- * Provides styling for the CheckStep integration settings page in the WordPress admin.
- * Includes styles for form fields, status indicators, and layout components.
- *
- * @package CheckStep_Integration
- * @subpackage Admin
- * @since 1.0.0
  */
 
-.checkstep-settings-wrap {
-    max-width: 800px;
+/* Settings page layout */
+.bp-admin-card.section-checkstep_api_settings,
+.bp-admin-card.section-checkstep_queue_settings,
+.bp-admin-card.section-checkstep_notification_settings {
     margin: 20px 0;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    padding: 20px;
 }
 
-.checkstep-settings-wrap .form-table {
-    margin-top: 20px;
+/* Field styling */
+.bp-admin-card .form-table th {
+    padding: 20px 10px 20px 0;
+    width: 200px;
 }
 
-.checkstep-settings-wrap .form-table th {
-    padding: 20px 10px;
+.bp-admin-card .form-table td {
+    padding: 15px 10px;
 }
 
-.checkstep-settings-wrap .description {
-    margin: 5px 0;
+/* Input fields */
+.bp-admin-card input[type="text"],
+.bp-admin-card input[type="password"],
+.bp-admin-card select {
+    width: 350px;
+    max-width: 100%;
+}
+
+/* Description text */
+.bp-admin-card .description {
     color: #666;
+    font-style: italic;
+    margin: 5px 0;
+}
+
+/* Webhook URL display */
+.webhook-url-info {
+    margin-top: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-left: 4px solid #007cba;
+}
+
+.webhook-url-info code {
+    display: block;
+    padding: 10px;
+    margin: 10px 0;
+    background: #f0f0f1;
+    font-family: monospace;
+}
+
+/* Toggle visibility button */
+.toggle-field-visibility {
+    margin-left: 10px !important;
 }
 
 /* Status indicators */
@@ -45,14 +77,35 @@
     color: #a94442;
 }
 
-/* Field styling */
-#checkstep_api_key,
-#checkstep_api_url {
-    width: 100%;
-    max-width: 400px;
+/* Queue status display */
+.queue-status {
+    margin-top: 20px;
+    padding: 15px;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
 }
 
-.checkstep-settings-wrap .regular-text {
-    width: 100%;
-    max-width: 400px;
+.queue-status h3 {
+    margin-top: 0;
+}
+
+.queue-status-count {
+    font-size: 24px;
+    font-weight: bold;
+    color: #23282d;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 782px) {
+    .bp-admin-card .form-table th {
+        width: 100%;
+        padding-bottom: 0;
+    }
+
+    .bp-admin-card input[type="text"],
+    .bp-admin-card input[type="password"],
+    .bp-admin-card select {
+        width: 100%;
+    }
 }

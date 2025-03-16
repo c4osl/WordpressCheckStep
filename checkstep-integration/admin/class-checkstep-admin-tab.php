@@ -11,127 +11,127 @@
 // Exit if accessed directly
 defined('ABSPATH') || exit;
 
-// Include parent class if not already included
-if (!class_exists('BP_Admin_Integration_Tab')) {
-    require_once buddypress()->plugin_dir . 'bp-core/classes/class-bp-admin-integration-tab.php';
-}
-
 /**
  * Class CheckStep_Admin_Tab
- *
- * Extends BuddyBoss's integration tab system to provide a dedicated configuration
- * interface for CheckStep settings.
- *
- * @since 1.0.0
  */
 class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
 
     /**
-     * Initialize the admin tab.
-     *
-     * @since 1.0.0
+     * Initialize the admin tab
      */
     public function initialize() {
-        parent::initialize();
-
-        $this->tab = 'checkstep_integration';
-        $this->tab_name = __('CheckStep', 'checkstep-integration');
-        $this->tab_args = array(
-            'title'    => __('CheckStep Integration', 'checkstep-integration'),
-            'priority' => 50,
-        );
-
-        add_action('bp_loaded', array($this, 'setup_hooks'));
+        $this->tab_label = __('CheckStep', 'checkstep-integration');
+        $this->tab_name  = 'checkstep-integration';
+        $this->tab_order = 55;
     }
 
     /**
-     * Setup hooks for the admin tab.
-     *
-     * @since 1.0.0
-     * @access public
-     */
-    public function setup_hooks() {
-        try {
-            // Register settings on admin_init
-            add_action('admin_init', array($this, 'register_fields'));
-
-            // Add custom admin scripts and styles
-            add_action('admin_enqueue_scripts', array($this, 'enqueue_scripts'));
-
-            CheckStep_Logger::debug('Admin tab hooks initialized');
-        } catch (Exception $e) {
-            CheckStep_Logger::error('Failed to setup admin tab hooks', array(
-                'error' => $e->getMessage()
-            ));
-        }
-    }
-
-    /**
-     * Register admin settings.
-     *
-     * @since 1.0.0
+     * Register settings fields
      */
     public function register_fields() {
-        try {
-            // Add section for API settings
-            bp_core_register_section(
-                $this->tab,
-                'checkstep_api_settings',
-                __('API Settings', 'checkstep-integration'),
-                array($this, 'api_settings_section_callback')
-            );
+        // API Settings Section
+        $this->add_section(
+            'checkstep_api_settings',
+            __('API Configuration', 'checkstep-integration'),
+            array($this, 'api_settings_info')
+        );
 
-            // Register API Key field
-            bp_core_register_setting(
-                $this->tab,
-                'checkstep_api_key',
-                array(
-                    'title'    => __('API Key', 'checkstep-integration'),
-                    'callback' => array($this, 'api_key_field_callback'),
-                    'section'  => 'checkstep_api_settings'
-                )
-            );
+        // API Key Field
+        $this->add_field(
+            'checkstep_api_key',
+            __('API Key', 'checkstep-integration'),
+            array($this, 'render_api_key_field'),
+            'checkstep_api_settings'
+        );
 
-            // Register Webhook Secret field
-            bp_core_register_setting(
-                $this->tab,
-                'checkstep_webhook_secret',
-                array(
-                    'title'    => __('Webhook Secret', 'checkstep-integration'),
-                    'callback' => array($this, 'webhook_secret_field_callback'),
-                    'section'  => 'checkstep_api_settings'
-                )
-            );
+        // Webhook Secret Field
+        $this->add_field(
+            'checkstep_webhook_secret',
+            __('Webhook Secret', 'checkstep-integration'),
+            array($this, 'render_webhook_secret_field'),
+            'checkstep_api_settings'
+        );
 
-            CheckStep_Logger::info('Settings fields registered successfully');
-        } catch (Exception $e) {
-            CheckStep_Logger::error('Failed to register settings fields', array(
-                'error' => $e->getMessage()
-            ));
-        }
+        // Queue Settings Section
+        $this->add_section(
+            'checkstep_queue_settings',
+            __('Queue Configuration', 'checkstep-integration'),
+            array($this, 'queue_settings_info')
+        );
+
+        // Queue Processing Interval
+        $this->add_field(
+            'checkstep_queue_interval',
+            __('Processing Interval', 'checkstep-integration'),
+            array($this, 'render_queue_interval_field'),
+            'checkstep_queue_settings'
+        );
+
+        // Notification Settings Section
+        $this->add_section(
+            'checkstep_notification_settings',
+            __('Notification Settings', 'checkstep-integration'),
+            array($this, 'notification_settings_info')
+        );
+
+        // Enable Email Notifications
+        $this->add_field(
+            'checkstep_enable_email_notifications',
+            __('Email Notifications', 'checkstep-integration'),
+            array($this, 'render_email_notifications_field'),
+            'checkstep_notification_settings'
+        );
     }
 
     /**
-     * API Settings section callback.
+     * API Settings section information
      */
-    public function api_settings_section_callback() {
+    public function api_settings_info() {
         ?>
-        <p><?php _e('Configure your CheckStep API credentials. You can find these in your CheckStep dashboard.', 'checkstep-integration'); ?></p>
+        <p>
+            <?php _e('Configure your CheckStep API credentials and endpoint settings.', 'checkstep-integration'); ?>
+            <a href="https://docs.checkstep.com/api" target="_blank">
+                <?php _e('Learn More', 'checkstep-integration'); ?>
+            </a>
+        </p>
         <?php
     }
 
     /**
-     * API Key field callback.
+     * Queue Settings section information
      */
-    public function api_key_field_callback() {
+    public function queue_settings_info() {
+        ?>
+        <p>
+            <?php _e('Configure how CheckStep processes the content moderation queue.', 'checkstep-integration'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Notification Settings section information
+     */
+    public function notification_settings_info() {
+        ?>
+        <p>
+            <?php _e('Configure how users are notified about moderation decisions.', 'checkstep-integration'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render API key field
+     */
+    public function render_api_key_field() {
         $value = bp_get_option('checkstep_api_key', '');
         ?>
-        <input type="password" 
-               name="checkstep_api_key" 
-               id="checkstep_api_key" 
-               value="<?php echo esc_attr($value); ?>" 
-               class="regular-text" />
-        <button type="button" class="button button-secondary toggle-api-key">
+        <input type="password"
+               id="checkstep_api_key"
+               name="checkstep_api_key"
+               value="<?php echo esc_attr($value); ?>"
+               class="regular-text"
+        />
+        <button type="button" class="button button-secondary toggle-field-visibility">
             <?php _e('Show/Hide', 'checkstep-integration'); ?>
         </button>
         <p class="description">
@@ -141,146 +141,81 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
     }
 
     /**
-     * Webhook Secret field callback.
+     * Render webhook secret field
      */
-    public function webhook_secret_field_callback() {
+    public function render_webhook_secret_field() {
         $value = bp_get_option('checkstep_webhook_secret', '');
         ?>
-        <input type="password" 
-               name="checkstep_webhook_secret" 
-               id="checkstep_webhook_secret" 
-               value="<?php echo esc_attr($value); ?>" 
-               class="regular-text" />
-        <button type="button" class="button button-secondary toggle-webhook-secret">
+        <input type="password"
+               id="checkstep_webhook_secret"
+               name="checkstep_webhook_secret"
+               value="<?php echo esc_attr($value); ?>"
+               class="regular-text"
+        />
+        <button type="button" class="button button-secondary toggle-field-visibility">
             <?php _e('Show/Hide', 'checkstep-integration'); ?>
         </button>
         <p class="description">
-            <?php _e('Enter your CheckStep webhook secret. This is used to verify incoming webhook requests.', 'checkstep-integration'); ?>
+            <?php _e('Enter your CheckStep webhook secret. This verifies incoming webhook requests.', 'checkstep-integration'); ?>
+        </p>
+        <div class="webhook-url-info">
+            <p>
+                <?php _e('Configure this webhook URL in your CheckStep dashboard:', 'checkstep-integration'); ?>
+                <code><?php echo esc_url(get_rest_url(null, 'checkstep/v1/decisions')); ?></code>
+            </p>
+        </div>
+        <?php
+    }
+
+    /**
+     * Render queue interval field
+     */
+    public function render_queue_interval_field() {
+        $value = bp_get_option('checkstep_queue_interval', '5');
+        ?>
+        <select id="checkstep_queue_interval" name="checkstep_queue_interval">
+            <option value="1" <?php selected($value, '1'); ?>>
+                <?php _e('Every minute', 'checkstep-integration'); ?>
+            </option>
+            <option value="5" <?php selected($value, '5'); ?>>
+                <?php _e('Every 5 minutes', 'checkstep-integration'); ?>
+            </option>
+            <option value="15" <?php selected($value, '15'); ?>>
+                <?php _e('Every 15 minutes', 'checkstep-integration'); ?>
+            </option>
+            <option value="30" <?php selected($value, '30'); ?>>
+                <?php _e('Every 30 minutes', 'checkstep-integration'); ?>
+            </option>
+        </select>
+        <p class="description">
+            <?php _e('How often should the moderation queue be processed?', 'checkstep-integration'); ?>
         </p>
         <?php
     }
 
     /**
-     * Enqueue admin scripts and styles.
-     *
-     * Loads the necessary CSS and JavaScript files for the admin interface.
-     *
-     * @since 1.0.0
+     * Render email notifications field
      */
-    public function enqueue_scripts() {
-        try {
-            if ($this->is_current_tab()) {
-                wp_enqueue_style(
-                    'checkstep-admin',
-                    plugin_dir_url(dirname(__FILE__)) . 'assets/css/admin.css',
-                    array(),
-                    CHECKSTEP_VERSION
-                );
-
-                wp_enqueue_script(
-                    'checkstep-admin',
-                    plugin_dir_url(dirname(__FILE__)) . 'assets/js/admin.js',
-                    array('jquery'),
-                    CHECKSTEP_VERSION,
-                    true
-                );
-
-                CheckStep_Logger::debug('Admin assets enqueued successfully');
-            }
-        } catch (Exception $e) {
-            CheckStep_Logger::error('Failed to enqueue admin assets', array(
-                'error' => $e->getMessage()
-            ));
-        }
+    public function render_email_notifications_field() {
+        $value = bp_get_option('checkstep_enable_email_notifications', '1');
+        ?>
+        <input type="checkbox"
+               id="checkstep_enable_email_notifications"
+               name="checkstep_enable_email_notifications"
+               value="1"
+               <?php checked($value, '1'); ?>
+        />
+        <label for="checkstep_enable_email_notifications">
+            <?php _e('Send email notifications for moderation decisions', 'checkstep-integration'); ?>
+        </label>
+        <p class="description">
+            <?php _e('Users will receive email notifications when their content is moderated.', 'checkstep-integration'); ?>
+        </p>
+        <?php
     }
-
-    /**
-     * Check if current page is this tab.
-     *
-     * Determines if the current admin page corresponds to this integration tab.
-     *
-     * @since 1.0.0
-     * @access protected
-     * @return bool True if current page is this tab
-     */
-    protected function is_current_tab() {
-        try {
-            if (!is_admin()) {
-                return false;
-            }
-
-            $page = isset($_GET['page']) ? sanitize_text_field($_GET['page']) : '';
-            $tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : '';
-
-            $is_current = 'bp-integrations' === $page && $this->tab === $tab;
-
-            CheckStep_Logger::debug('Tab check performed', array(
-                'is_current' => $is_current,
-                'page' => $page,
-                'tab' => $tab
-            ));
-
-            return $is_current;
-        } catch (Exception $e) {
-            CheckStep_Logger::error('Error checking current tab', array(
-                'error' => $e->getMessage()
-            ));
-            return false;
-        }
-    }
-
-    /**
-     * API Settings section description.
-     *
-     * Outputs the descriptive text for the API settings section.
-     *
-     * @since 1.0.0
-     */
-   
-
-    /**
-     * API Key field.
-     *
-     * Renders the input field for the CheckStep API key with proper security measures.
-     *
-     * @since 1.0.0
-     */
-   
-
-    /**
-     * API URL field.
-     *
-     * Renders the input field for the CheckStep API endpoint URL.
-     *
-     * @since 1.0.0
-     */
-   
-
-    /**
-     * Moderation Settings section description.
-     *
-     * Outputs the descriptive text for the moderation settings section.
-     *
-     * @since 1.0.0
-     */
-    
-
-    /**
-     * Auto-moderation field.
-     *
-     * Renders the checkbox for enabling automatic content moderation.
-     *
-     * @since 1.0.0
-     */
-    
-
-    /**
-     * Notification level field.
-     *
-     * Renders the dropdown for selecting moderation notification levels.
-     *
-     * @since 1.0.0
-     */
-    
-
 }
+
+// Initialize the admin tab
+new CheckStep_Admin_Tab();
+
+?>
