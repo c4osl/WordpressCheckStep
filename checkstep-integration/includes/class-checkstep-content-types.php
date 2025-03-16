@@ -21,6 +21,176 @@
  */
 class CheckStep_Content_Types {
     /**
+     * Get base content structure
+     *
+     * Returns the common fields that all content types share.
+     *
+     * @param int    $content_id   Content identifier
+     * @param string $content_type Type of content (activity, forum, blog, etc.)
+     * @return array Base content structure
+     */
+    private function get_base_content_structure($content_id, $content_type) {
+        return array(
+            'id' => $content_id,
+            'type' => $content_type,
+            'author' => array(
+                'id' => 0, // Will be populated with actual user ID
+                'name' => '',
+                'role' => ''
+            ),
+            'parent_id' => null, // For replies, comments, etc.
+            'group_id' => null,  // For group-related content
+            'timestamp' => current_time('mysql'),
+            'fields' => array() // Will contain content fields
+        );
+    }
+
+    /**
+     * Format activity stream post
+     *
+     * @param int $activity_id Activity post ID
+     * @return array|false Formatted activity data or false on failure
+     */
+    public function get_activity_post($activity_id) {
+        try {
+            $content = $this->get_base_content_structure($activity_id, 'activity');
+            // TODO: Implement activity stream post formatting
+            return $content;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Format forum post
+     *
+     * @param int $post_id Forum post ID
+     * @return array|false Formatted forum post data or false on failure
+     */
+    public function get_forum_post($post_id) {
+        try {
+            $content = $this->get_base_content_structure($post_id, 'forum');
+            // TODO: Implement forum post formatting
+            return $content;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Format group discussion
+     *
+     * @param int $discussion_id Group discussion ID
+     * @return array|false Formatted discussion data or false on failure
+     */
+    public function get_group_discussion($discussion_id) {
+        try {
+            $content = $this->get_base_content_structure($discussion_id, 'discussion');
+            // TODO: Implement group discussion formatting
+            return $content;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Format user blog post
+     *
+     * @param int $post_id Blog post ID
+     * @return array|false Formatted blog post data or false on failure
+     */
+    public function get_user_blog_post($post_id) {
+        try {
+            $content = $this->get_base_content_structure($post_id, 'blog');
+            // TODO: Implement user blog post formatting
+            return $content;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Format image upload
+     *
+     * @param int $attachment_id Image attachment ID
+     * @return array|false Formatted image data or false on failure
+     */
+    public function get_image_upload($attachment_id) {
+        try {
+            $content = $this->get_base_content_structure($attachment_id, 'image');
+            // TODO: Implement image upload formatting
+            return $content;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Format video upload
+     *
+     * @param int $attachment_id Video attachment ID
+     * @return array|false Formatted video data or false on failure
+     */
+    public function get_video_upload($attachment_id) {
+        try {
+            $content = $this->get_base_content_structure($attachment_id, 'video');
+            // TODO: Implement video upload formatting
+            return $content;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Add text field to content
+     *
+     * @param array  $content Content structure
+     * @param string $text    Text content to add
+     * @param string $field_id Optional field identifier
+     */
+    protected function add_text_field(&$content, $text, $field_id = 'content') {
+        $content['fields'][] = array(
+            'id' => $field_id,
+            'type' => 'text',
+            'src' => $text
+        );
+    }
+
+    /**
+     * Add media field to content
+     *
+     * @param array  $content    Content structure
+     * @param string $media_url  URL of the media
+     * @param string $media_type Type of media (image, video, audio)
+     * @param string $field_id   Optional field identifier
+     */
+    protected function add_media_field(&$content, $media_url, $media_type, $field_id = null) {
+        if (!$field_id) {
+            $field_id = $media_type;
+        }
+
+        $content['fields'][] = array(
+            'id' => $field_id,
+            'type' => $media_type,
+            'src' => $media_url
+        );
+    }
+
+    /**
+     * Add file field to content
+     *
+     * @param array  $content  Content structure
+     * @param string $file_url URL of the file
+     * @param string $field_id Optional field identifier
+     */
+    protected function add_file_field(&$content, $file_url, $field_id = 'attachment') {
+        $content['fields'][] = array(
+            'id' => $field_id,
+            'type' => 'file',
+            'src' => $file_url
+        );
+    }
+    /**
      * Get user profile data
      *
      * Retrieves and formats user profile information including BuddyBoss extended profile fields.
@@ -113,60 +283,6 @@ class CheckStep_Content_Types {
         }
     }
 
-    /**
-     * Get forum post data
-     *
-     * Retrieves and formats forum post content including thread context and warnings.
-     *
-     * @since 1.0.0
-     * @param int $post_id Forum post ID
-     * @return array|false Forum post data array or false if post not found or forums not active
-     */
-    public function get_forum_post($post_id) {
-        try {
-            if (!function_exists('bbp_get_reply_id')) {
-                CheckStep_Logger::warning('BuddyBoss forums not active');
-                return false;
-            }
-
-            $forum_post = bbp_get_reply($post_id);
-            if (!$forum_post) {
-                CheckStep_Logger::warning('Forum post not found', array('post_id' => $post_id));
-                return false;
-            }
-
-            $author_data = $this->get_user_profile($forum_post->post_author);
-            $content_warnings = wp_get_post_terms($post_id, 'content-warning', array('fields' => 'names'));
-            $media_data = $this->get_post_media($post_id);
-
-            $forum_data = array(
-                'forum_post_id' => $post_id,
-                'thread_id' => bbp_get_reply_thread_id($post_id),
-                'content' => $forum_post->post_content,
-                'author' => $author_data,
-                'timestamp' => $forum_post->post_date,
-                'fragments' => $media_data,
-                'custom_taxonomies' => array(
-                    'content_warnings' => $content_warnings,
-                ),
-            );
-
-            CheckStep_Logger::debug('Forum post data retrieved', array(
-                'post_id' => $post_id,
-                'thread_id' => $forum_data['thread_id'],
-                'author_id' => $forum_post->post_author
-            ));
-
-            return $forum_data;
-
-        } catch (Exception $e) {
-            CheckStep_Logger::error('Failed to get forum post', array(
-                'error' => $e->getMessage(),
-                'post_id' => $post_id
-            ));
-            return false;
-        }
-    }
 
     /**
      * Get media attachment data
