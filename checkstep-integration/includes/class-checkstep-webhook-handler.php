@@ -585,7 +585,6 @@ class CheckStep_Webhook_Handler {
         }
     }
 
-
     /**
      * Notify user about appeal decision
      *
@@ -631,16 +630,5 @@ class CheckStep_Webhook_Handler {
                 'user_id' => $user_id ?? 'unknown'
             ));
         }
-    }
-}
-
-// Add a simple logger class (replace with your actual logging mechanism)
-class CheckStep_Logger {
-    public static function info($message, $context = array()) {
-        echo sprintf("[CheckStep] %s: %s\n", $message, json_encode($context));
-    }
-
-    public static function error($message, $context = array()) {
-        echo sprintf("[CheckStep Error] %s: %s\n", $message, json_encode($context));
     }
 }

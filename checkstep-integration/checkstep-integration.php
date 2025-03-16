@@ -16,10 +16,7 @@
  */
 
 // If this file is called directly, abort.
-if (!defined('WPINC')) {
-    // Load stubs if we're not in WordPress environment
-    require_once __DIR__ . '/includes/wordpress-stubs.php';
-}
+defined('WPINC') || exit;
 
 // Plugin version
 define('CHECKSTEP_VERSION', '1.0.0');
@@ -30,80 +27,40 @@ define('CHECKSTEP_PLUGIN_URL', plugin_dir_url(__FILE__));
 require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-logger.php';
 
 /**
- * Class CheckStep_Integration
- * 
- * Main plugin class that handles integration with BuddyBoss Platform.
- * Manages plugin lifecycle, component initialization, and BuddyBoss integration setup.
+ * The main plugin class.
  *
  * @since 1.0.0
- * @package CheckStep_Integration
  */
-class CheckStep_Integration extends BP_Integration {
+class CheckStep_Integration {
 
     /**
      * Instance of this class.
      *
      * @since 1.0.0
-     * @access private
      * @var CheckStep_Integration
      */
     private static $instance = null;
 
     /**
      * Initialize the plugin.
-     *
-     * Sets up the integration with BuddyBoss platform and configures required plugins.
-     *
-     * @since 1.0.0
-     * @access private
      */
     private function __construct() {
-        try {
-            // Initialize logger early
-            CheckStep_Logger::init();
+        // Initialize logger early
+        CheckStep_Logger::init();
 
-            $this->start(
-                'checkstep',
-                __('CheckStep', 'checkstep-integration'),
-                'checkstep',
-                array(
-                    'required_plugin' => array(
-                        array(
-                            'name'    => 'BuddyBoss Platform',
-                            'version' => '1.0.0',
-                            'slug'    => 'buddyboss-platform/bp-loader.php',
-                        ),
-                    ),
-                )
-            );
-
-            // Initialize components after required plugins check
-            add_action('plugins_loaded', array($this, 'init_components'));
-
-        } catch (Exception $e) {
-            CheckStep_Logger::error('Plugin initialization failed', array(
-                'error' => $e->getMessage()
-            ));
-            add_action('admin_notices', function() use ($e) {
-                ?>
-                <div class="notice notice-error">
-                    <p><?php echo esc_html(sprintf(
-                        __('CheckStep Integration initialization failed: %s', 'checkstep-integration'),
-                        $e->getMessage()
-                    )); ?></p>
-                </div>
-                <?php
-            });
+        // Check if BuddyBoss Platform is active
+        if (!$this->check_buddyboss()) {
+            return;
         }
+
+        // Initialize components
+        add_action('plugins_loaded', array($this, 'init_components'));
     }
 
     /**
      * Get plugin instance.
      *
-     * Ensures only one instance is loaded or can be loaded.
-     *
-     * @since 1.0.0
-     * @return CheckStep_Integration Main plugin instance
+     * @return CheckStep_Integration
      */
     public static function get_instance() {
         if (null === self::$instance) {
@@ -113,25 +70,32 @@ class CheckStep_Integration extends BP_Integration {
     }
 
     /**
+     * Check if BuddyBoss Platform is active.
+     *
+     * @return bool
+     */
+    private function check_buddyboss() {
+        if (!function_exists('bp_get_option')) {
+            add_action('admin_notices', array($this, 'buddyboss_missing_notice'));
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Initialize plugin components.
-     *
-     * Loads and initializes all plugin components after verifying requirements.
-     *
-     * @since 1.0.0
      */
     public function init_components() {
         try {
-            if (!$this->check_requirements()) {
-                return;
-            }
-
             // Load dependencies
             require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-api.php';
             require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-content-types.php';
             require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-ingestion.php';
             require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-moderation.php';
             require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-notifications.php';
+            require_once CHECKSTEP_PLUGIN_DIR . 'includes/class-checkstep-webhook-handler.php';
             require_once CHECKSTEP_PLUGIN_DIR . 'admin/class-checkstep-admin.php';
+            require_once CHECKSTEP_PLUGIN_DIR . 'admin/class-checkstep-admin-tab.php';
 
             // Initialize components with error handling
             try {
@@ -150,6 +114,8 @@ class CheckStep_Integration extends BP_Integration {
                 $this->moderation = new CheckStep_Moderation($this->api);
                 $this->notifications = new CheckStep_Notifications();
                 $this->admin = new CheckStep_Admin();
+                new CheckStep_Admin_Tab(); // from edited
+                new CheckStep_Webhook_Handler(); //from edited
                 CheckStep_Logger::info('All components initialized successfully');
             } catch (Exception $e) {
                 CheckStep_Logger::error('Failed to initialize components', array(
@@ -158,12 +124,10 @@ class CheckStep_Integration extends BP_Integration {
                 throw $e;
             }
 
-            // Setup admin integration tab
-            $this->setup_admin_integration_tab();
+            // Register activation/deactivation hooks (moved here from edited)
+            register_activation_hook(__FILE__, array('CheckStep_Integration', 'activate'));
+            register_deactivation_hook(__FILE__, array('CheckStep_Integration', 'deactivate'));
 
-            // Register activation/deactivation hooks
-            register_activation_hook(__FILE__, array($this, 'activate'));
-            register_deactivation_hook(__FILE__, array($this, 'deactivate'));
 
         } catch (Exception $e) {
             CheckStep_Logger::error('Component initialization failed', array(
@@ -183,58 +147,20 @@ class CheckStep_Integration extends BP_Integration {
     }
 
     /**
-     * Check if required plugins are active.
-     *
-     * @since 1.0.0
-     * @access private
-     * @return bool True if requirements are met, false otherwise
+     * Display admin notice for missing BuddyBoss.
      */
-    private function check_requirements() {
-        if (!function_exists('bp_get_option') && !defined('BP_PLATFORM_VERSION') && !defined('BUDDYBOSS_VERSION')) {
-            CheckStep_Logger::warning('BuddyBoss Platform not found');
-            add_action('admin_notices', array($this, 'buddyboss_missing_notice'));
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Setup admin integration tab.
-     *
-     * Initializes the CheckStep settings tab in BuddyBoss Platform settings.
-     *
-     * @since 1.0.0
-     */
-    public function setup_admin_integration_tab() {
-        try {
-            require_once CHECKSTEP_PLUGIN_DIR . 'admin/class-checkstep-admin-tab.php';
-
-            new CheckStep_Admin_Tab(
-                "bp-{$this->id}",
-                $this->name,
-                array(
-                    'root_path'       => $this->path,
-                    'root_url'        => $this->url,
-                    'required_plugin' => $this->required_plugin,
-                )
-            );
-            CheckStep_Logger::info('Admin integration tab setup complete');
-        } catch (Exception $e) {
-            CheckStep_Logger::error('Failed to setup admin integration tab', array(
-                'error' => $e->getMessage()
-            ));
-            throw $e;
-        }
+    public function buddyboss_missing_notice() {
+        ?>
+        <div class="notice notice-error">
+            <p><?php _e('CheckStep Integration requires BuddyBoss Platform to be installed and activated.', 'checkstep-integration'); ?></p>
+        </div>
+        <?php
     }
 
     /**
      * Plugin activation.
-     *
-     * Creates necessary database tables and schedules recurring tasks.
-     *
-     * @since 1.0.0
      */
-    public function activate() {
+    public static function activate() {
         try {
             // Schedule WP-Cron events
             if (!wp_next_scheduled('checkstep_process_queue')) {
@@ -242,46 +168,6 @@ class CheckStep_Integration extends BP_Integration {
             }
 
             // Create necessary database tables
-            $this->create_tables();
-
-            CheckStep_Logger::info('Plugin activated successfully');
-        } catch (Exception $e) {
-            CheckStep_Logger::error('Plugin activation failed', array(
-                'error' => $e->getMessage()
-            ));
-            throw $e;
-        }
-    }
-
-    /**
-     * Plugin deactivation.
-     *
-     * Cleans up scheduled tasks and performs any necessary cleanup.
-     *
-     * @since 1.0.0
-     */
-    public function deactivate() {
-        try {
-            // Clear scheduled events
-            wp_clear_scheduled_hook('checkstep_process_queue');
-            CheckStep_Logger::info('Plugin deactivated successfully');
-        } catch (Exception $e) {
-            CheckStep_Logger::error('Plugin deactivation failed', array(
-                'error' => $e->getMessage()
-            ));
-        }
-    }
-
-    /**
-     * Create plugin tables.
-     *
-     * Sets up custom database tables required by the plugin.
-     *
-     * @since 1.0.0
-     * @access private
-     */
-    private function create_tables() {
-        try {
             global $wpdb;
             $charset_collate = $wpdb->get_charset_collate();
 
@@ -300,49 +186,32 @@ class CheckStep_Integration extends BP_Integration {
             require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
             dbDelta($sql);
 
-            CheckStep_Logger::info('Database tables created successfully');
+            CheckStep_Logger::info('Plugin activated successfully');
         } catch (Exception $e) {
-            CheckStep_Logger::error('Failed to create database tables', array(
+            CheckStep_Logger::error('Plugin activation failed', array(
                 'error' => $e->getMessage()
             ));
-            throw $e;
         }
     }
 
     /**
-     * Admin notice for missing BuddyBoss.
-     *
-     * Displays an admin notice when BuddyBoss Platform is not installed.
-     *
-     * @since 1.0.0
+     * Plugin deactivation.
      */
-    public function buddyboss_missing_notice() {
-        ?>
-        <div class="notice notice-error">
-            <p><?php _e('CheckStep Integration requires BuddyBoss Platform to be installed and activated.', 'checkstep-integration'); ?></p>
-        </div>
-        <?php
+    public static function deactivate() {
+        try {
+            wp_clear_scheduled_hook('checkstep_process_queue');
+            CheckStep_Logger::info('Plugin deactivated successfully');
+        } catch (Exception $e) {
+            CheckStep_Logger::error('Plugin deactivation failed', array(
+                'error' => $e->getMessage()
+            ));
+        }
     }
 }
 
-/**
- * Initialize the plugin.
- *
- * Returns the main instance of CheckStep_Integration.
- *
- * @since 1.0.0
- * @return CheckStep_Integration
- */
+// Initialize the plugin
 function checkstep_integration_init() {
-    try {
-        return CheckStep_Integration::get_instance();
-    } catch (Exception $e) {
-        CheckStep_Logger::error('Failed to initialize plugin', array(
-            'error' => $e->getMessage()
-        ));
-        return null;
-    }
+    return CheckStep_Integration::get_instance();
 }
 
-// Start the plugin
-checkstep_integration_init();
+add_action('plugins_loaded', 'checkstep_integration_init');

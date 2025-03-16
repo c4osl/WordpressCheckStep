@@ -19,29 +19,28 @@
             );
         });
 
-        // Test API connection
-        $('#test-checkstep-connection').on('click', function(e) {
+        // Handle queue item actions
+        $('.queue-action-button').on('click', function(e) {
             e.preventDefault();
             var $button = $(this);
-            var $status = $('.checkstep-status');
+            var itemId = $button.data('item-id');
+            var action = $button.data('action');
 
+            // Disable button during processing
             $button.prop('disabled', true);
-            $status.removeClass('connected not-connected')
-                   .text(CheckStepAdmin.i18n.testingConnection);
 
-            // Make AJAX call to test connection
-            $.post(ajaxurl, {
-                action: 'test_checkstep_connection',
+            // Send AJAX request to process queue item
+            $.post(CheckStepAdmin.ajaxurl, {
+                action: 'process_checkstep_queue_item',
                 nonce: CheckStepAdmin.nonce,
-                api_key: $('#checkstep_api_key').val(),
-                webhook_secret: $('#checkstep_webhook_secret').val()
+                item_id: itemId,
+                action_type: action
             }, function(response) {
                 if (response.success) {
-                    $status.addClass('connected')
-                           .text(CheckStepAdmin.i18n.connectionSuccess);
+                    // Reload table row or entire page
+                    location.reload();
                 } else {
-                    $status.addClass('not-connected')
-                           .text(CheckStepAdmin.i18n.connectionFailed + ': ' + response.data.message);
+                    alert(response.data.message);
                 }
             }).always(function() {
                 $button.prop('disabled', false);
@@ -50,7 +49,7 @@
 
         // Update queue status
         function updateQueueStatus() {
-            $.post(ajaxurl, {
+            $.post(CheckStepAdmin.ajaxurl, {
                 action: 'get_checkstep_queue_status',
                 nonce: CheckStepAdmin.nonce
             }, function(response) {
@@ -71,6 +70,12 @@
             }, 60000);
         }
 
+        // Handle filter form submission
+        $('#filter-queue-form').on('submit', function(e) {
+            // Let the form submit normally - no need for AJAX
+            return true;
+        });
+
         // Save settings via AJAX
         $('#checkstep-settings-form').on('submit', function(e) {
             e.preventDefault();
@@ -81,7 +86,7 @@
             $submit.prop('disabled', true);
             $notice.removeClass('notice-success notice-error').hide();
 
-            $.post(ajaxurl, $form.serialize(), function(response) {
+            $.post(CheckStepAdmin.ajaxurl, $form.serialize(), function(response) {
                 if (response.success) {
                     $notice.addClass('notice-success')
                            .text(CheckStepAdmin.i18n.settingsSaved)
@@ -93,6 +98,35 @@
                 }
             }).always(function() {
                 $submit.prop('disabled', false);
+            });
+        });
+
+        // Test API connection button
+        $('#test-checkstep-connection').on('click', function(e) {
+            e.preventDefault();
+            var $button = $(this);
+            var $status = $('.checkstep-status');
+
+            $button.prop('disabled', true);
+            $status.removeClass('connected not-connected')
+                   .text(CheckStepAdmin.i18n.testingConnection);
+
+            // Make AJAX call to test connection
+            $.post(CheckStepAdmin.ajaxurl, {
+                action: 'test_checkstep_connection',
+                nonce: CheckStepAdmin.nonce,
+                api_key: $('#checkstep_api_key').val(),
+                webhook_secret: $('#checkstep_webhook_secret').val()
+            }, function(response) {
+                if (response.success) {
+                    $status.addClass('connected')
+                           .text(CheckStepAdmin.i18n.connectionSuccess);
+                } else {
+                    $status.addClass('not-connected')
+                           .text(CheckStepAdmin.i18n.connectionFailed + ': ' + response.data.message);
+                }
+            }).always(function() {
+                $button.prop('disabled', false);
             });
         });
     });

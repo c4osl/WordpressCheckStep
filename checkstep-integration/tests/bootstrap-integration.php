@@ -21,26 +21,12 @@ echo "API credentials verified.\n";
 putenv('CHECKSTEP_API_KEY=' . getenv('CHECKSTEP_API_KEY'));
 putenv('CHECKSTEP_WEBHOOK_SECRET=' . getenv('CHECKSTEP_WEBHOOK_SECRET'));
 
-// Mock CheckStep_Logger if not available
-if (!class_exists('CheckStep_Logger')) {
-    class CheckStep_Logger {
-        public static function debug($message, $context = array()) {
-            echo sprintf("[Debug] %s: %s\n", $message, json_encode($context));
-        }
-
-        public static function info($message, $context = array()) {
-            echo sprintf("[Info] %s: %s\n", $message, json_encode($context));
-        }
-
-        public static function warning($message, $context = array()) {
-            echo sprintf("[Warning] %s: %s\n", $message, json_encode($context));
-        }
-
-        public static function error($message, $context = array()) {
-            echo sprintf("[Error] %s: %s\n", $message, json_encode($context));
-        }
-    }
+// Require the logger class
+$logger_file = dirname(__DIR__) . '/includes/class-checkstep-logger.php';
+if (!file_exists($logger_file)) {
+    die("Logger class file not found at: {$logger_file}\n");
 }
+require_once $logger_file;
 
 // Mock WordPress functions needed by API class
 if (!function_exists('get_option')) {

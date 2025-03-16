@@ -52,7 +52,9 @@ class CheckStep_Logger {
      * @since 1.0.0
      */
     public static function init() {
-        self::$current_level = get_option('checkstep_log_level', 'warning');
+        if (function_exists('get_option')) {
+            self::$current_level = get_option('checkstep_log_level', 'warning');
+        }
     }
 
     /**
@@ -111,6 +113,8 @@ class CheckStep_Logger {
      * Internal logging method
      *
      * Handles the actual logging of messages based on configured level.
+     * If running in a test environment (where WP functions aren't available),
+     * defaults to echoing logs to stdout.
      *
      * @since 1.0.0
      * @access private
@@ -134,19 +138,26 @@ class CheckStep_Logger {
             empty($context) ? '' : ' | Context: ' . json_encode($context)
         );
 
-        if (defined('WP_DEBUG') && WP_DEBUG) {
+        // If WordPress functions are available, use WP's error logging
+        if (defined('WP_DEBUG') && WP_DEBUG && function_exists('error_log')) {
             error_log($log_entry);
+        } else {
+            // In test environment, output to stdout
+            echo $log_entry . "\n";
         }
 
-        /**
-         * Fires after a log entry is created
-         *
-         * @since 1.0.0
-         * @param string $level     Log level
-         * @param string $message   Log message
-         * @param array  $context   Contextual data
-         * @param string $log_entry Complete log entry
-         */
-        do_action('checkstep_logged_message', $level, $message, $context, $log_entry);
+        // Fire action if WordPress is available
+        if (function_exists('do_action')) {
+            /**
+             * Fires after a log entry is created
+             *
+             * @since 1.0.0
+             * @param string $level     Log level
+             * @param string $message   Log message
+             * @param array  $context   Contextual data
+             * @param string $log_entry Complete log entry
+             */
+            do_action('checkstep_logged_message', $level, $message, $context, $log_entry);
+        }
     }
 }
