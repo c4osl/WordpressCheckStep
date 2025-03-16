@@ -3,9 +3,9 @@
  * Test queue handler functionality
  */
 
+require_once dirname(__DIR__) . '/tests/bootstrap-integration.php';
 require_once dirname(__DIR__) . '/includes/class-checkstep-queue-handler.php';
 require_once dirname(__DIR__) . '/includes/class-checkstep-content-types.php';
-require_once dirname(__DIR__) . '/includes/class-checkstep-api.php';
 
 // Mock CheckStep_Logger if not available
 if (!class_exists('CheckStep_Logger')) {
@@ -40,18 +40,6 @@ if (!function_exists('update_option')) {
     function update_option($option, $value) {
         global $wp_options;
         $wp_options[$option] = $value;
-        return true;
-    }
-}
-
-if (!function_exists('wp_next_scheduled')) {
-    function wp_next_scheduled($hook) {
-        return false;
-    }
-}
-
-if (!function_exists('wp_schedule_event')) {
-    function wp_schedule_event($timestamp, $recurrence, $hook) {
         return true;
     }
 }

@@ -5,6 +5,8 @@
  * This script tests the live integration with CheckStep's API.
  */
 
+require_once dirname(__DIR__) . '/tests/bootstrap-integration.php';
+
 // Enable error reporting
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
