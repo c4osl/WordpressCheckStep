@@ -78,10 +78,68 @@ Each content type is processed asynchronously and supports:
 ## 🔧 Installation
 
 1. Download the latest release
-2. Upload to your WordPress plugins directory
-3. Activate the plugin
-4. Configure your CheckStep API credentials
-5. Customize your moderation settings
+2. Upload to your WordPress plugins directory (`/wp-content/plugins/checkstep-integration/`)
+3. Activate the plugin through **Plugins → Installed Plugins** in WordPress admin
+4. Configure your CheckStep API credentials (see Configuration below)
+
+## ⚙️ Configuration
+
+After activating the plugin, configure it through the WordPress admin interface:
+
+### Accessing Settings
+
+The plugin settings can be accessed in **two locations**:
+
+**Option 1: WordPress Admin → Settings → CheckStep** (Recommended)
+- Main configuration page
+- Enter API Key and Webhook Secret
+- View connection status
+- Copy webhook endpoint URL
+- Test API connection
+
+**Option 2: WordPress Admin → Tools → Moderation Queue**
+- View and manage moderation queue
+- Process pending items
+- Monitor queue statistics
+
+### Required Settings
+
+Navigate to **Settings → CheckStep** and configure the following:
+
+1. **API Key** (Required)
+   - Your CheckStep API key for authentication
+   - Get this from your CheckStep dashboard
+   - Field is masked for security
+
+2. **Webhook Secret** (Required)
+   - Secret key to verify incoming webhook requests
+   - Get this from your CheckStep dashboard
+   - Field is masked for security
+
+3. **Appeal URL** (Optional)
+   - URL where users can appeal moderation decisions
+   - Example: `https://yoursite.com/appeal-form`
+
+### Webhook Setup
+
+After saving your API credentials:
+
+1. Copy the webhook URL displayed on the settings page:
+   ```
+   https://yoursite.com/wp-json/checkstep/v1/decisions
+   ```
+
+2. Log in to your CheckStep dashboard
+3. Navigate to webhook settings
+4. Add the copied URL as your webhook endpoint
+5. Enter the same Webhook Secret you configured in the plugin
+
+### Testing the Connection
+
+1. In **Settings → CheckStep**, enter your credentials
+2. Click **Save Changes**
+3. Click the **Test Connection** button
+4. You should see a success message if configured correctly
 
 ## 🛠️ Development Setup
 
