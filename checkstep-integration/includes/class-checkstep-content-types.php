@@ -173,7 +173,7 @@ class CheckStep_Content_Types {
     private function get_user_role($user_id) {
         $user = get_userdata($user_id);
         if ($user && !empty($user->roles)) {
-            return reset($user->roles); // Get the first role
+            return $user->roles[0]; // Get the first role
         }
         return '';
     }
