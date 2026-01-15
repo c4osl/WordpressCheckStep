@@ -96,7 +96,7 @@ class CheckStep_Webhook_Handler {
      *
      * Per CheckStep docs: https://docs.checkstep.com/standard/#payload-signing-optional
      * Headers: x-auth-signature, x-auth-date, x-auth-nonce
-     * Signature: HMAC-SHA256(secret, nonce + date + body)
+     * Algorithm: content = body.date.nonce, contentHash = SHA256(content), signature = HMAC-SHA256(secret, contentHash)
      *
      * @param WP_REST_Request $request Request object
      * @return bool|WP_Error True if signature valid, WP_Error otherwise
@@ -135,8 +135,10 @@ class CheckStep_Webhook_Handler {
                 throw new Exception('Webhook secret not configured');
             }
 
-            $signing_string = $auth_nonce . $auth_date . $payload;
-            $expected_signature = hash_hmac('sha256', $signing_string, $webhook_secret);
+            // Per CheckStep JS: content = body.date.nonce, then hash content, then hmac the hash
+            $content = $payload . '.' . $auth_date . '.' . $auth_nonce;
+            $content_hash = hash('sha256', $content);
+            $expected_signature = hash_hmac('sha256', $content_hash, $webhook_secret);
 
             $signatures = explode(',', $signature_header);
             foreach ($signatures as $signature) {
