@@ -3,7 +3,7 @@
  * Plugin Name: CheckStep Integration for BuddyBoss
  * Plugin URI: https://example.com/checkstep-integration
  * Description: Integrates BuddyBoss with CheckStep's content moderation system
- * Version: 1.0.17
+ * Version: 1.0.18
  * Author: Your Name
  * Author URI: https://example.com
  * License: GPL-2.0+
@@ -12,14 +12,14 @@
  * Domain Path: /languages
  *
  * @package CheckStep_Integration
- * @version 1.0.17
+ * @version 1.0.18
  */
 
 // If this file is called directly, abort.
 defined('WPINC') || exit;
 
 // Plugin version
-define('CHECKSTEP_VERSION', '1.0.17');
+define('CHECKSTEP_VERSION', '1.0.18');
 define('CHECKSTEP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CHECKSTEP_PLUGIN_URL', plugin_dir_url(__FILE__));
 

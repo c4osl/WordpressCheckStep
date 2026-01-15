@@ -2,11 +2,20 @@
 
 WordPress plugin for integrating CheckStep content moderation with BuddyBoss Platform.
 
-## Current Version: 1.0.17
+## Current Version: 1.0.18
 
 ### Version History
 
-**v1.0.17** (Current) - 2025-12-01
+**v1.0.18** (Current) - 2026-01-14
+- BREAKING: Webhook signature verification now uses CheckStep headers (x-auth-signature, x-auth-date, x-auth-nonce)
+- BREAKING: Signature computed as HMAC-SHA256(secret, nonce + date + body) per CheckStep docs
+- Updated: Webhook handler parses correct webhook_type field (analysed-content, decision, author-decision, incident-closed, appeal-decision)
+- Updated: Payload parsing uses content.id, content.type, violations array, metadata array
+- Fixed: Removed duplicate webhook endpoint registration (was in both moderation and webhook-handler classes)
+- Fixed: Removed args parameter from REST route registration
+- Added: Support for multiple comma-separated signatures (for key rotation)
+
+**v1.0.17** - 2025-12-01
 - Updated: Forum hooks now use bbp_get_topic_content() and bbp_get_reply_content() per BuddyBoss docs
 - Improved: bbp_new_topic and bbp_new_reply hooks now process content immediately (not just queue)
 - Improved: bp_core_activated_user hook now processes user profiles immediately
