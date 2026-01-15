@@ -92,40 +92,91 @@ class CheckStep_Webhook_Handler {
     }
 
     /**
-     * Verify webhook signature
+     * Verify webhook signature using CheckStep headers
+     *
+     * Per CheckStep docs: https://docs.checkstep.com/standard/#payload-signing-optional
+     * Headers: x-auth-signature, x-auth-date, x-auth-nonce
+     * Signature: HMAC-SHA256(secret, nonce + date + body)
      *
      * @param WP_REST_Request $request Request object
      * @return bool|WP_Error True if signature valid, WP_Error otherwise
      */
     public function verify_webhook_signature($request) {
-        $signature = $request->get_header('X-CheckStep-Signature');
-        if (empty($signature)) {
+        $signature_header = $request->get_header('x-auth-signature');
+        $auth_date = $request->get_header('x-auth-date');
+        $auth_nonce = $request->get_header('x-auth-nonce');
+
+        if (empty($signature_header)) {
+            CheckStep_Logger::warning('Missing x-auth-signature header');
             return new WP_Error(
-                'invalid_signature',
-                'Missing webhook signature',
+                'missing_signature',
+                'Missing x-auth-signature header',
+                array('status' => 401)
+            );
+        }
+
+        if (empty($auth_date) || empty($auth_nonce)) {
+            CheckStep_Logger::warning('Missing x-auth-date or x-auth-nonce header');
+            return new WP_Error(
+                'missing_auth_headers',
+                'Missing x-auth-date or x-auth-nonce header',
                 array('status' => 401)
             );
         }
 
         $payload = $request->get_body();
+
         try {
             $webhook_secret = getenv('CHECKSTEP_WEBHOOK_SECRET');
+            if (empty($webhook_secret)) {
+                $webhook_secret = get_option('checkstep_webhook_secret');
+            }
             if (empty($webhook_secret)) {
                 throw new Exception('Webhook secret not configured');
             }
 
-            $expected = hash_hmac('sha256', $payload, $webhook_secret);
-            return hash_equals($expected, $signature);
+            $signing_string = $auth_nonce . $auth_date . $payload;
+            $expected_signature = hash_hmac('sha256', $signing_string, $webhook_secret);
+
+            $signatures = explode(',', $signature_header);
+            foreach ($signatures as $signature) {
+                $signature = trim($signature);
+                if (hash_equals($expected_signature, $signature)) {
+                    CheckStep_Logger::debug('Webhook signature verified successfully');
+                    return true;
+                }
+            }
+
+            CheckStep_Logger::warning('Invalid webhook signature', array(
+                'auth_date' => $auth_date,
+                'auth_nonce' => $auth_nonce
+            ));
+            return new WP_Error(
+                'invalid_signature',
+                'Invalid webhook signature',
+                array('status' => 401)
+            );
         } catch (Exception $e) {
             CheckStep_Logger::error('Webhook signature validation failed', array(
                 'error' => $e->getMessage()
             ));
-            return false;
+            return new WP_Error(
+                'verification_error',
+                'Webhook verification failed: ' . $e->getMessage(),
+                array('status' => 500)
+            );
         }
     }
 
     /**
      * Handle incoming webhook
+     *
+     * Per CheckStep docs, webhook_type can be:
+     * - analysed-content: Content has been analyzed
+     * - decision: Moderation decision made
+     * - author-decision: Decision about an author
+     * - incident-closed: Incident resolved
+     * - appeal-decision: Appeal outcome
      *
      * @param WP_REST_Request $request Request object
      * @return WP_REST_Response
@@ -133,24 +184,48 @@ class CheckStep_Webhook_Handler {
     public function handle_webhook($request) {
         try {
             $payload = $request->get_json_params();
-            $event_type = $payload['event_type'] ?? '';
+            $webhook_type = $payload['webhook_type'] ?? '';
+            $timestamp = $payload['timestamp'] ?? '';
 
-            switch ($event_type) {
-                case 'decision_taken':
-                    $response = $this->handle_moderation_decision($payload);
+            CheckStep_Logger::api_response('Webhook received', array(
+                'webhook_type' => $webhook_type,
+                'timestamp' => $timestamp
+            ));
+
+            switch ($webhook_type) {
+                case 'analysed-content':
+                    $response = $this->handle_analysed_content($payload);
                     break;
 
-                case 'incident_closed':
+                case 'decision':
+                    $response = $this->handle_decision($payload);
+                    break;
+
+                case 'author-decision':
+                    $response = $this->handle_author_decision($payload);
+                    break;
+
+                case 'incident-closed':
                     $response = $this->handle_incident_closure($payload);
                     break;
 
+                case 'appeal-decision':
+                    $response = $this->handle_appeal_decision($payload);
+                    break;
+
                 default:
-                    throw new Exception("Unsupported event type: {$event_type}");
+                    CheckStep_Logger::warning('Unsupported webhook type received', array(
+                        'webhook_type' => $webhook_type
+                    ));
+                    throw new Exception("Unsupported webhook type: {$webhook_type}");
             }
 
             return new WP_REST_Response($response, 200);
 
         } catch (Exception $e) {
+            CheckStep_Logger::error('Webhook processing failed', array(
+                'error' => $e->getMessage()
+            ));
             return new WP_REST_Response(
                 array('error' => $e->getMessage()),
                 500
@@ -159,21 +234,167 @@ class CheckStep_Webhook_Handler {
     }
 
     /**
-     * Handle moderation decision
+     * Handle analysed-content webhook
+     *
+     * Called when CheckStep has finished analyzing content.
+     * May include violations if content breaches policies.
      *
      * @param array $payload Webhook payload
      * @return array Response data
      */
-    private function handle_moderation_decision($payload) {
-        $content_id = $payload['content_id'] ?? '';
-        $action = $payload['action'] ?? '';
-        $reason = $payload['reason'] ?? '';
+    private function handle_analysed_content($payload) {
+        $content = $payload['content'] ?? array();
+        $violations = $payload['violations'] ?? array();
+        $metadata = $payload['metadata'] ?? array();
 
-        if (empty($content_id) || empty($action)) {
-            throw new Exception('Missing required fields: content_id or action');
+        $content_id = $content['id'] ?? '';
+        $content_type = $content['type'] ?? '';
+
+        if (empty($content_id)) {
+            throw new Exception('Missing content.id in payload');
         }
 
-        // Map CheckStep action to BuddyBoss moderation action
+        CheckStep_Logger::info('Content analysed', array(
+            'content_id' => $content_id,
+            'content_type' => $content_type,
+            'violations_count' => count($violations)
+        ));
+
+        if (!empty($violations)) {
+            CheckStep_Logger::warning('Content has violations', array(
+                'content_id' => $content_id,
+                'violations' => $violations
+            ));
+        }
+
+        return array(
+            'status' => 'success',
+            'message' => 'Content analysis received',
+            'content_id' => $content_id,
+            'violations_count' => count($violations)
+        );
+    }
+
+    /**
+     * Handle decision webhook
+     *
+     * Called when a moderation decision is made on content.
+     *
+     * @param array $payload Webhook payload
+     * @return array Response data
+     */
+    private function handle_decision($payload) {
+        $content = $payload['content'] ?? array();
+        $decision = $payload['decision'] ?? array();
+        $metadata = $payload['metadata'] ?? array();
+
+        $content_id = $content['id'] ?? '';
+        $content_type = $content['type'] ?? '';
+        $action = $decision['action'] ?? '';
+        $reason = $decision['reason'] ?? '';
+
+        if (empty($content_id)) {
+            throw new Exception('Missing content.id in payload');
+        }
+
+        CheckStep_Logger::info('Decision received', array(
+            'content_id' => $content_id,
+            'content_type' => $content_type,
+            'action' => $action,
+            'reason' => $reason
+        ));
+
+        return $this->execute_moderation_action($content_id, $content_type, $action, $reason, $metadata);
+    }
+
+    /**
+     * Handle author-decision webhook
+     *
+     * Called when a decision is made about an author (e.g., ban).
+     *
+     * @param array $payload Webhook payload
+     * @return array Response data
+     */
+    private function handle_author_decision($payload) {
+        $author = $payload['author'] ?? array();
+        $decision = $payload['decision'] ?? array();
+
+        $author_id = $author['id'] ?? '';
+        $action = $decision['action'] ?? '';
+        $reason = $decision['reason'] ?? '';
+
+        if (empty($author_id)) {
+            throw new Exception('Missing author.id in payload');
+        }
+
+        CheckStep_Logger::info('Author decision received', array(
+            'author_id' => $author_id,
+            'action' => $action,
+            'reason' => $reason
+        ));
+
+        if ($action === 'suspend' || $action === 'ban') {
+            $this->suspend_user($author_id);
+        }
+
+        return array(
+            'status' => 'success',
+            'message' => "Author decision '{$action}' processed",
+            'author_id' => $author_id
+        );
+    }
+
+    /**
+     * Handle appeal-decision webhook
+     *
+     * Called when an appeal has been reviewed.
+     *
+     * @param array $payload Webhook payload
+     * @return array Response data
+     */
+    private function handle_appeal_decision($payload) {
+        $content = $payload['content'] ?? array();
+        $appeal = $payload['appeal'] ?? array();
+
+        $content_id = $content['id'] ?? '';
+        $content_type = $content['type'] ?? '';
+        $outcome = $appeal['outcome'] ?? '';
+        $reason = $appeal['reason'] ?? '';
+
+        if (empty($content_id)) {
+            throw new Exception('Missing content.id in payload');
+        }
+
+        CheckStep_Logger::info('Appeal decision received', array(
+            'content_id' => $content_id,
+            'outcome' => $outcome,
+            'reason' => $reason
+        ));
+
+        if ($outcome === 'upheld') {
+            $this->notify_user_about_appeal($content_id, $reason);
+        } elseif ($outcome === 'overturned') {
+            $this->restore_content($content_id, $content_type);
+        }
+
+        return array(
+            'status' => 'success',
+            'message' => "Appeal decision '{$outcome}' processed",
+            'content_id' => $content_id
+        );
+    }
+
+    /**
+     * Execute moderation action based on decision
+     *
+     * @param string $content_id Content ID
+     * @param string $content_type Content type
+     * @param string $action Action to take
+     * @param string $reason Reason for action
+     * @param array $metadata Additional metadata
+     * @return array Response data
+     */
+    private function execute_moderation_action($content_id, $content_type, $action, $reason, $metadata = array()) {
         switch ($action) {
             case 'delete':
             case 'hide':
@@ -185,120 +406,77 @@ class CheckStep_Webhook_Handler {
                 break;
 
             case 'ban_user':
-                $this->suspend_user($content_id);
+            case 'suspend':
+                $user_id = $this->get_content_author($content_id);
+                if ($user_id) {
+                    $this->suspend_user($user_id);
+                }
                 break;
 
             case 'no_action':
-                // Log the decision but take no moderation action
+            case 'approve':
                 CheckStep_Logger::info('Content approved - no action needed', array(
                     'content_id' => $content_id,
                     'reason' => $reason
                 ));
                 break;
 
-            case 'upheld':
-                try {
-                    $user_id = $this->get_content_author($content_id);
-                    if (!$user_id) {
-                        throw new Exception("Could not find author for content ID: {$content_id}");
-                    }
-
-                    // Send notification through BuddyBoss notification system
-                    if (function_exists('bp_notifications_add_notification')) {
-                        bp_notifications_add_notification(array(
-                            'user_id'           => $user_id,
-                            'item_id'           => $content_id,
-                            'component_name'    => 'checkstep',
-                            'component_action'  => 'appeal_refused',
-                            'date_notified'     => bp_core_current_time(),
-                            'is_new'           => 1,
-                            'allow_duplicate'   => false,
-                            'description'       => sprintf(
-                                'Your appeal for content %d has been reviewed and the original moderation decision has been upheld. Reason: %s',
-                                $content_id,
-                                $reason
-                            )
-                        ));
-
-                        CheckStep_Logger::info('Appeal notification sent to user', array(
-                            'user_id' => $user_id,
-                            'content_id' => $content_id,
-                            'reason' => $reason
-                        ));
-                    } else {
-                        throw new Exception('BuddyBoss notifications system not available');
-                    }
-                } catch (Exception $e) {
-                    CheckStep_Logger::error('Failed to send appeal notification', array(
-                        'error' => $e->getMessage(),
-                        'content_id' => $content_id
-                    ));
-                }
-                break;
-
-            case 'overturn':
-                try {
-                    $user_id = $this->get_content_author($content_id);
-                    if (!$user_id) {
-                        throw new Exception("Could not find author for content ID: {$content_id}");
-                    }
-
-                    // Unhide content using BuddyBoss moderation system
-                    $content_type = $this->determine_content_type($content_id);
-                    if (function_exists('bp_moderation_unhide')) {
-                        bp_moderation_unhide(array(
-                            'content_id' => $content_id,
-                            'content_type' => $this->get_moderation_type($content_type)
-                        ));
-
-                        CheckStep_Logger::info('Content restored after successful appeal', array(
-                            'content_id' => $content_id,
-                            'content_type' => $content_type
-                        ));
-                    } else {
-                        throw new Exception('BuddyBoss moderation system not available');
-                    }
-
-                    // Notify user about successful appeal
-                    if (function_exists('bp_notifications_add_notification')) {
-                        bp_notifications_add_notification(array(
-                            'user_id'           => $user_id,
-                            'item_id'           => $content_id,
-                            'component_name'    => 'checkstep',
-                            'component_action'  => 'appeal_accepted',
-                            'date_notified'     => bp_core_current_time(),
-                            'is_new'           => 1,
-                            'allow_duplicate'   => false,
-                            'description'       => sprintf(
-                                'Your appeal for content %d has been reviewed and accepted. Your content has been restored.',
-                                $content_id
-                            )
-                        ));
-
-                        CheckStep_Logger::info('Appeal success notification sent to user', array(
-                            'user_id' => $user_id,
-                            'content_id' => $content_id
-                        ));
-                    } else {
-                        throw new Exception('BuddyBoss notifications system not available');
-                    }
-                } catch (Exception $e) {
-                    CheckStep_Logger::error('Failed to process appeal overturn', array(
-                        'error' => $e->getMessage(),
-                        'content_id' => $content_id
-                    ));
-                }
-                break;
-
             default:
-                throw new Exception("Unsupported action: {$action}");
+                CheckStep_Logger::warning('Unknown action type', array(
+                    'action' => $action,
+                    'content_id' => $content_id
+                ));
         }
 
         return array(
             'status' => 'success',
-            'message' => "Moderation action '{$action}' processed successfully"
+            'message' => "Moderation action '{$action}' processed",
+            'content_id' => $content_id
         );
     }
+
+    /**
+     * Restore content after successful appeal
+     *
+     * @param string $content_id Content ID
+     * @param string $content_type Content type
+     */
+    private function restore_content($content_id, $content_type) {
+        try {
+            $user_id = $this->get_content_author($content_id);
+
+            if (function_exists('bp_moderation_unhide')) {
+                $moderation_type = $this->get_moderation_type($content_type);
+                bp_moderation_unhide(array(
+                    'content_id' => $content_id,
+                    'content_type' => $moderation_type
+                ));
+
+                CheckStep_Logger::info('Content restored after appeal', array(
+                    'content_id' => $content_id,
+                    'content_type' => $content_type
+                ));
+            }
+
+            if ($user_id && function_exists('bp_notifications_add_notification')) {
+                bp_notifications_add_notification(array(
+                    'user_id'           => $user_id,
+                    'item_id'           => $content_id,
+                    'component_name'    => 'checkstep',
+                    'component_action'  => 'appeal_accepted',
+                    'date_notified'     => bp_core_current_time(),
+                    'is_new'           => 1,
+                    'allow_duplicate'   => false
+                ));
+            }
+        } catch (Exception $e) {
+            CheckStep_Logger::error('Failed to restore content', array(
+                'error' => $e->getMessage(),
+                'content_id' => $content_id
+            ));
+        }
+    }
+
 
     /**
      * Handle incident closure
