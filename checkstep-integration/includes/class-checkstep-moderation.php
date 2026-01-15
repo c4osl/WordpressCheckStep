@@ -84,10 +84,7 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
      */
     private function setup_hooks() {
         try {
-            // Register webhook endpoints
-            add_action('rest_api_init', array($this, 'register_webhooks'));
-
-            // Handle moderation decisions
+            // Handle moderation decisions (webhook endpoint is registered by CheckStep_Webhook_Handler)
             add_action('checkstep_handle_decision', array($this, 'handle_moderation_decision'));
 
             // Filter content display
@@ -100,113 +97,6 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
                 'error' => $e->getMessage()
             ));
             throw $e;
-        }
-    }
-
-    /**
-     * Register webhook endpoints
-     *
-     * Sets up REST API endpoints for receiving moderation decisions from CheckStep.
-     *
-     * @since 1.0.0
-     */
-    public function register_webhooks() {
-        try {
-            register_rest_route('checkstep/v1', '/decisions', array(
-                'methods' => 'POST',
-                'callback' => array($this, 'handle_decision_webhook'),
-                'permission_callback' => array($this, 'verify_webhook'),
-                'args' => array(
-                    'decision_id' => array(
-                        'required' => true,
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_text_field',
-                    ),
-                    'content_id' => array(
-                        'required' => true,
-                        'type' => 'integer',
-                        'sanitize_callback' => 'absint',
-                    ),
-                    'action' => array(
-                        'required' => true,
-                        'type' => 'string',
-                        'enum' => array('delete', 'hide', 'warn', 'ban_user'),
-                        'sanitize_callback' => 'sanitize_text_field',
-                    ),
-                    'reason' => array(
-                        'required' => false,
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_text_field',
-                    ),
-                ),
-            ));
-            CheckStep_Logger::info('Webhook endpoints registered successfully');
-        } catch (Exception $e) {
-            CheckStep_Logger::error('Failed to register webhook endpoints', array(
-                'error' => $e->getMessage()
-            ));
-            throw $e;
-        }
-    }
-
-    /**
-     * Verify webhook request authenticity
-     *
-     * Validates incoming webhook requests using HMAC signature verification.
-     *
-     * @since 1.0.0
-     * @param WP_REST_Request $request Request object containing headers and payload
-     * @return bool|WP_Error True if verification passes, WP_Error on failure
-     */
-    public function verify_webhook($request) {
-        try {
-            $signature = $request->get_header('X-CheckStep-Signature');
-            $webhook_secret = get_option('checkstep_webhook_secret');
-
-            if (!$signature) {
-                CheckStep_Logger::warning('Missing webhook signature', array(
-                    'headers' => $request->get_headers()
-                ));
-                return new WP_Error(
-                    'missing_signature',
-                    'Missing CheckStep signature header',
-                    array('status' => 401)
-                );
-            }
-
-            if (!$webhook_secret) {
-                CheckStep_Logger::error('Webhook secret not configured');
-                return new WP_Error(
-                    'missing_secret',
-                    'Webhook secret not configured',
-                    array('status' => 500)
-                );
-            }
-
-            $payload = $request->get_body();
-            $expected_signature = hash_hmac('sha256', $payload, $webhook_secret);
-
-            if (!hash_equals($expected_signature, $signature)) {
-                CheckStep_Logger::warning('Invalid webhook signature received');
-                return new WP_Error(
-                    'invalid_signature',
-                    'Invalid CheckStep signature',
-                    array('status' => 401)
-                );
-            }
-
-            CheckStep_Logger::debug('Webhook signature verified successfully');
-            return true;
-
-        } catch (Exception $e) {
-            CheckStep_Logger::error('Webhook verification failed', array(
-                'error' => $e->getMessage()
-            ));
-            return new WP_Error(
-                'verification_error',
-                'Webhook verification failed',
-                array('status' => 500)
-            );
         }
     }
 
