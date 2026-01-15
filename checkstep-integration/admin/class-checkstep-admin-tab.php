@@ -14,7 +14,7 @@ defined('ABSPATH') || exit;
 /**
  * Class CheckStep_Admin_Tab
  */
-class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
+class CheckStep_Admin_Tab extends BP_Admin_Integration_tab {
 
     /**
      * Initialize the admin tab
@@ -23,6 +23,13 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
         $this->tab_label = __('CheckStep', 'checkstep-integration');
         $this->tab_name  = 'checkstep-integration';
         $this->tab_order = 55;
+    }
+
+    /**
+     * Check if integration is active
+     */
+    public function is_active() {
+        return true;
     }
 
     /**
@@ -37,19 +44,25 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
         );
 
         // API Key Field
-        $this->add_field(
+        $this->add_input_field(
             'checkstep_api_key',
             __('API Key', 'checkstep-integration'),
-            array($this, 'render_api_key_field'),
-            'checkstep_api_settings'
+            array(
+                'type' => 'password',
+                'placeholder' => __('Enter your CheckStep API key', 'checkstep-integration'),
+                'class' => 'regular-text',
+            )
         );
 
         // Webhook Secret Field
-        $this->add_field(
+        $this->add_input_field(
             'checkstep_webhook_secret',
             __('Webhook Secret', 'checkstep-integration'),
-            array($this, 'render_webhook_secret_field'),
-            'checkstep_api_settings'
+            array(
+                'type' => 'password',
+                'placeholder' => __('Enter your webhook secret', 'checkstep-integration'),
+                'class' => 'regular-text',
+            )
         );
 
         // Queue Settings Section
@@ -59,12 +72,11 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
             array($this, 'queue_settings_info')
         );
 
-        // Queue Processing Interval
+        // Queue Processing Interval - keep custom callback for select dropdown
         $this->add_field(
             'checkstep_queue_interval',
             __('Processing Interval', 'checkstep-integration'),
-            array($this, 'render_queue_interval_field'),
-            'checkstep_queue_settings'
+            array($this, 'render_queue_interval_field')
         );
 
         // Notification Settings Section
@@ -75,11 +87,12 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
         );
 
         // Enable Email Notifications
-        $this->add_field(
+        $this->add_checkbox_field(
             'checkstep_enable_email_notifications',
             __('Email Notifications', 'checkstep-integration'),
-            array($this, 'render_email_notifications_field'),
-            'checkstep_notification_settings'
+            array(
+                'input_text' => __('Send email notifications for moderation decisions', 'checkstep-integration'),
+            )
         );
     }
 
@@ -214,8 +227,5 @@ class CheckStep_Admin_Tab extends BP_Admin_Integration_Tab {
         <?php
     }
 }
-
-// Initialize the admin tab
-new CheckStep_Admin_Tab();
 
 ?>

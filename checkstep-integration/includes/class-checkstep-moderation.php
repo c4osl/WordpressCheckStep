@@ -94,7 +94,7 @@ class CheckStep_Moderation extends BP_Moderation_Abstract {
             add_filter('bp_activity_get_where_conditions', array($this, 'filter_moderated_content'), 10, 2);
             add_filter('bp_forums_get_where_conditions', array($this, 'filter_moderated_content'), 10, 2);
 
-            CheckStep_Logger::debug('Moderation hooks initialized');
+            CheckStep_Logger::info('Moderation hooks initialized');
         } catch (Exception $e) {
             CheckStep_Logger::error('Failed to setup moderation hooks', array(
                 'error' => $e->getMessage()

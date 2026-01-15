@@ -36,6 +36,8 @@ class CheckStep_Admin {
             add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
             add_action('wp_ajax_get_checkstep_queue_status', array($this, 'ajax_get_queue_status'));
             add_action('wp_ajax_process_checkstep_queue_item', array($this, 'ajax_process_queue_item'));
+            add_action('wp_ajax_test_checkstep_connection', array($this, 'ajax_test_connection'));
+            add_action('wp_ajax_checkstep_clear_logs', array($this, 'ajax_clear_logs'));
             CheckStep_Logger::info('Admin interface initialized');
         } catch (Exception $e) {
             CheckStep_Logger::error('Failed to initialize admin interface', array(
@@ -71,6 +73,15 @@ class CheckStep_Admin {
                 array($this, 'render_queue_page')
             );
 
+            // Add process flow diagram page under Tools menu
+            add_management_page(
+                __('CheckStep Process Flow', 'checkstep-integration'),
+                __('Process Flow', 'checkstep-integration'),
+                'manage_options',
+                'checkstep-process-flow',
+                array($this, 'render_process_flow_page')
+            );
+
             CheckStep_Logger::debug('Admin menu registered successfully');
         } catch (Exception $e) {
             CheckStep_Logger::error('Failed to add admin menu', array(
@@ -85,7 +96,7 @@ class CheckStep_Admin {
     public function enqueue_admin_assets($hook) {
         try {
             // Only load on our admin pages
-            if (!in_array($hook, array('tools_page_checkstep-queue', 'settings_page_checkstep-settings'))) {
+            if (!in_array($hook, array('tools_page_checkstep-queue', 'settings_page_checkstep-settings', 'tools_page_checkstep-process-flow'))) {
                 return;
             }
 
@@ -136,7 +147,7 @@ class CheckStep_Admin {
             }
 
             require_once CHECKSTEP_PLUGIN_DIR . 'admin/partials/dashboard-page.php';
-            CheckStep_Logger::debug('Queue page rendered successfully');
+            CheckStep_Logger::info('Queue page rendered successfully');
         } catch (Exception $e) {
             CheckStep_Logger::error('Failed to render queue page', array(
                 'error' => $e->getMessage()
@@ -146,6 +157,34 @@ class CheckStep_Admin {
                 <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
                 <div class="notice notice-error">
                     <p><?php _e('Error loading queue page. Please check error logs.', 'checkstep-integration'); ?></p>
+                </div>
+            </div>
+            <?php
+        }
+    }
+
+    /**
+     * Render process flow diagram page
+     *
+     * @since 1.0.17
+     */
+    public function render_process_flow_page() {
+        try {
+            if (!current_user_can('manage_options')) {
+                wp_die(__('You do not have sufficient permissions to access this page.'));
+            }
+
+            require_once CHECKSTEP_PLUGIN_DIR . 'admin/partials/process-flow-page.php';
+            CheckStep_Logger::info('Process flow page rendered successfully');
+        } catch (Exception $e) {
+            CheckStep_Logger::error('Failed to render process flow page', array(
+                'error' => $e->getMessage()
+            ));
+            ?>
+            <div class="wrap">
+                <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+                <div class="notice notice-error">
+                    <p><?php _e('Error loading process flow page. Please check error logs.', 'checkstep-integration'); ?></p>
                 </div>
             </div>
             <?php
@@ -267,6 +306,74 @@ class CheckStep_Admin {
         update_option('checkstep_last_queue_process', current_time('mysql'));
     }
 
+    /**
+     * AJAX handler for clearing logs
+     *
+     * @since 1.0.11
+     */
+    public function ajax_clear_logs() {
+        try {
+            check_ajax_referer('checkstep-admin', 'nonce');
+
+            if (!current_user_can('manage_options')) {
+                throw new Exception(__('You do not have permission to clear logs.', 'checkstep-integration'));
+            }
+
+            $result = CheckStep_Logger::clear_logs();
+
+            if ($result) {
+                CheckStep_Logger::info('All logs cleared by admin');
+                wp_send_json_success(array(
+                    'message' => __('Logs cleared successfully.', 'checkstep-integration')
+                ));
+            } else {
+                throw new Exception(__('Failed to clear logs.', 'checkstep-integration'));
+            }
+        } catch (Exception $e) {
+            CheckStep_Logger::error('Failed to clear logs', array(
+                'error' => $e->getMessage()
+            ));
+            wp_send_json_error(array(
+                'message' => $e->getMessage()
+            ));
+        }
+    }
+
+    /**
+     * AJAX handler for testing API connection
+     */
+    public function ajax_test_connection() {
+        try {
+            check_ajax_referer('checkstep-admin', 'nonce');
+
+            $api_key = isset($_POST['api_key']) ? sanitize_text_field($_POST['api_key']) : '';
+            $webhook_secret = isset($_POST['webhook_secret']) ? sanitize_text_field($_POST['webhook_secret']) : '';
+
+            if (empty($api_key)) {
+                throw new Exception(__('API key is required', 'checkstep-integration'));
+            }
+
+            // Test the API connection
+            $api = new CheckStep_API();
+            $test_result = $api->test_connection($api_key);
+
+            if ($test_result) {
+                wp_send_json_success(array(
+                    'message' => __('Connection successful! API key is valid.', 'checkstep-integration')
+                ));
+            } else {
+                throw new Exception(__('Connection failed. Please check your API key.', 'checkstep-integration'));
+            }
+        } catch (Exception $e) {
+            CheckStep_Logger::error('API connection test failed', array(
+                'error' => $e->getMessage()
+            ));
+            wp_send_json_error(array(
+                'message' => $e->getMessage()
+            ));
+        }
+    }
+
 
     /**
      * Register plugin settings
@@ -278,9 +385,30 @@ class CheckStep_Admin {
      */
     public function register_settings() {
         try {
-            register_setting('checkstep_settings', 'checkstep_api_key');
-            register_setting('checkstep_settings', 'checkstep_webhook_secret');
-            register_setting('checkstep_settings', 'checkstep_appeal_url');
+            // Register settings with proper sanitization callbacks
+            register_setting('checkstep_settings', 'checkstep_api_key', array(
+                'type' => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+                'default' => ''
+            ));
+            
+            register_setting('checkstep_settings', 'checkstep_webhook_secret', array(
+                'type' => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+                'default' => ''
+            ));
+            
+            register_setting('checkstep_settings', 'checkstep_appeal_url', array(
+                'type' => 'string',
+                'sanitize_callback' => 'esc_url_raw',
+                'default' => ''
+            ));
+            
+            register_setting('checkstep_settings', 'checkstep_enabled_log_levels', array(
+                'type' => 'array',
+                'sanitize_callback' => array($this, 'sanitize_log_levels'),
+                'default' => array('error', 'warning', 'info')
+            ));
 
             add_settings_section(
                 'checkstep_main_section',
@@ -311,6 +439,22 @@ class CheckStep_Admin {
                 array($this, 'render_appeal_url_field'),
                 'checkstep-settings',
                 'checkstep_main_section'
+            );
+            
+            // Logging settings section
+            add_settings_section(
+                'checkstep_logging_section',
+                __('Logging Settings', 'checkstep-integration'),
+                array($this, 'render_logging_section_info'),
+                'checkstep-settings'
+            );
+            
+            add_settings_field(
+                'checkstep_enabled_log_levels',
+                __('Enabled Log Levels', 'checkstep-integration'),
+                array($this, 'render_log_levels_field'),
+                'checkstep-settings',
+                'checkstep_logging_section'
             );
 
             CheckStep_Logger::info('Settings registered successfully');
@@ -343,7 +487,7 @@ class CheckStep_Admin {
             }
 
             require_once $template_path;
-            CheckStep_Logger::debug('Settings page rendered successfully');
+            CheckStep_Logger::info('Settings page rendered successfully');
         } catch (Exception $e) {
             CheckStep_Logger::error('Failed to render settings page', array(
                 'error' => $e->getMessage()
@@ -453,5 +597,89 @@ class CheckStep_Admin {
                 'error' => $e->getMessage()
             ));
         }
+    }
+    
+    /**
+     * Render logging section info
+     *
+     * Outputs the description for the logging settings section.
+     *
+     * @since 1.0.15
+     */
+    public function render_logging_section_info() {
+        echo '<p>' . __('Configure which log levels to capture in the logs viewer.', 'checkstep-integration') . '</p>';
+    }
+    
+    /**
+     * Render log levels field
+     *
+     * Outputs the checkboxes for selecting enabled log levels.
+     *
+     * @since 1.0.15
+     */
+    public function render_log_levels_field() {
+        $enabled_levels = get_option('checkstep_enabled_log_levels', array('error', 'warning', 'info'));
+        if (!is_array($enabled_levels)) {
+            $enabled_levels = array('error', 'warning', 'info');
+        }
+        
+        $log_levels = array(
+            'error'   => __('Error - Critical errors that need immediate attention', 'checkstep-integration'),
+            'warning' => __('Warning - Potential issues that should be reviewed', 'checkstep-integration'),
+            'info'    => __('Info - General information about plugin operations', 'checkstep-integration'),
+            'debug'   => __('Debug - Detailed technical information for debugging', 'checkstep-integration')
+        );
+        
+        foreach ($log_levels as $level => $description) {
+            $checked = in_array($level, $enabled_levels) ? 'checked' : '';
+            ?>
+            <label style="display: block; margin-bottom: 8px;">
+                <input type="checkbox"
+                       name="checkstep_enabled_log_levels[]"
+                       value="<?php echo esc_attr($level); ?>"
+                       <?php echo $checked; ?>
+                />
+                <strong><?php echo esc_html(ucfirst($level)); ?></strong>
+                - <?php echo esc_html($description); ?>
+            </label>
+            <?php
+        }
+        ?>
+        <p class="description">
+            <?php _e('Select which log levels to record. Uncheck levels you don\'t want to see in the logs viewer.', 'checkstep-integration'); ?>
+        </p>
+        <?php
+    }
+    
+    /**
+     * Sanitize log levels setting
+     *
+     * Validates and sanitizes the log levels array.
+     *
+     * @since 1.0.15
+     * @param array $input The submitted log levels
+     * @return array Sanitized log levels
+     */
+    public function sanitize_log_levels($input) {
+        $valid_levels = array('error', 'warning', 'info', 'debug');
+        
+        if (!is_array($input)) {
+            return array('error', 'warning', 'info');
+        }
+        
+        $sanitized = array();
+        foreach ($input as $level) {
+            $level = sanitize_text_field($level);
+            if (in_array($level, $valid_levels)) {
+                $sanitized[] = $level;
+            }
+        }
+        
+        // Always include at least error level
+        if (empty($sanitized)) {
+            $sanitized = array('error');
+        }
+        
+        return $sanitized;
     }
 }

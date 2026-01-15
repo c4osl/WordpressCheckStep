@@ -76,29 +76,11 @@
             return true;
         });
 
-        // Save settings via AJAX
+        // Settings form - let it submit normally to options.php
+        // WordPress Settings API handles the save
         $('#checkstep-settings-form').on('submit', function(e) {
-            e.preventDefault();
-            var $form = $(this);
-            var $submit = $form.find(':submit');
-            var $notice = $('.settings-updated');
-
-            $submit.prop('disabled', true);
-            $notice.removeClass('notice-success notice-error').hide();
-
-            $.post(CheckStepAdmin.ajaxurl, $form.serialize(), function(response) {
-                if (response.success) {
-                    $notice.addClass('notice-success')
-                           .text(CheckStepAdmin.i18n.settingsSaved)
-                           .show();
-                } else {
-                    $notice.addClass('notice-error')
-                           .text(CheckStepAdmin.i18n.settingsError + ': ' + response.data.message)
-                           .show();
-                }
-            }).always(function() {
-                $submit.prop('disabled', false);
-            });
+            // Allow normal form submission
+            return true;
         });
 
         // Test API connection button

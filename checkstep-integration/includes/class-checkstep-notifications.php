@@ -30,7 +30,7 @@ class CheckStep_Notifications {
     public function __construct() {
         try {
             add_action('checkstep_decision_handled', array($this, 'send_notification'));
-            CheckStep_Logger::debug('Notification hooks initialized');
+            CheckStep_Logger::info('Notification hooks initialized');
         } catch (Exception $e) {
             CheckStep_Logger::error('Failed to initialize notification hooks', array(
                 'error' => $e->getMessage()

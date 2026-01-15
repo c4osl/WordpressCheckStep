@@ -50,29 +50,19 @@ class CheckStep_API {
      * Constructor
      *
      * Initializes the API client with credentials and base URL.
+     * Note: API key is optional during construction to allow testing connections
+     * with unsaved keys before configuration is complete.
      *
      * @since 1.0.0
-     * @throws Exception If API key is not configured
      */
     public function __construct() {
-        try {
-            $this->api_key = get_option('checkstep_api_key');
-            $this->api_url = trim(get_option('checkstep_api_url', 'https://api.checkstep.com/api/v2/'), '/') . '/';
+        $this->api_key = get_option('checkstep_api_key');
+        $this->api_url = trim(get_option('checkstep_api_url', 'https://api.checkstep.com/api/v2/'), '/') . '/';
 
-            if (empty($this->api_key)) {
-                throw new Exception('CheckStep API key not configured');
-            }
-
-            CheckStep_Logger::debug('API client initialized', array(
-                'api_url' => $this->api_url
-            ));
-
-        } catch (Exception $e) {
-            CheckStep_Logger::error('Failed to initialize API client', array(
-                'error' => $e->getMessage()
-            ));
-            throw $e;
-        }
+        CheckStep_Logger::info('API client initialized', array(
+            'api_url' => $this->api_url,
+            'has_api_key' => !empty($this->api_key)
+        ));
     }
 
     /**
@@ -141,6 +131,65 @@ class CheckStep_API {
     }
 
     /**
+     * Test API connection
+     *
+     * Tests the API connection with a simple ping or health check request.
+     *
+     * @since 1.0.7
+     * @param string $api_key Optional API key to test (defaults to configured key)
+     * @return bool True if connection is successful, false otherwise
+     */
+    public function test_connection($api_key = null) {
+        try {
+            $test_key = $api_key ?: $this->api_key;
+            
+            if (empty($test_key)) {
+                throw new Exception('API key is required for testing connection');
+            }
+
+            CheckStep_Logger::debug('Testing API connection');
+
+            // Try to make a simple API call (e.g., get account info or ping endpoint)
+            $response = wp_remote_get(
+                $this->api_url . 'ping',
+                array(
+                    'headers' => array(
+                        'Authorization' => 'Bearer ' . $test_key,
+                        'Content-Type' => 'application/json',
+                    ),
+                    'timeout' => 15,
+                )
+            );
+
+            if (is_wp_error($response)) {
+                throw new Exception('Connection failed: ' . $response->get_error_message());
+            }
+
+            $status_code = wp_remote_retrieve_response_code($response);
+
+            // Accept 200 or 204 as success
+            if ($status_code === 200 || $status_code === 204) {
+                CheckStep_Logger::info('API connection test successful');
+                return true;
+            } else {
+                $body = json_decode(wp_remote_retrieve_body($response), true);
+                throw new Exception(
+                    sprintf('API returned %d status: %s',
+                        $status_code,
+                        isset($body['message']) ? $body['message'] : 'Authentication failed'
+                    )
+                );
+            }
+
+        } catch (Exception $e) {
+            CheckStep_Logger::error('API connection test failed', array(
+                'error' => $e->getMessage()
+            ));
+            return false;
+        }
+    }
+
+    /**
      * Send content to CheckStep
      *
      * Submits content to CheckStep's API for moderation analysis.
@@ -152,6 +201,10 @@ class CheckStep_API {
      */
     public function send_content($content_type, $payload) {
         try {
+            if (empty($this->api_key)) {
+                throw new Exception('CheckStep API key not configured');
+            }
+
             if (empty($content_type) || !is_array($payload)) {
                 throw new Exception('Invalid content type or payload');
             }
@@ -226,6 +279,10 @@ class CheckStep_API {
      */
     public function get_decision($content_id) {
         try {
+            if (empty($this->api_key)) {
+                throw new Exception('CheckStep API key not configured');
+            }
+
             if (empty($content_id)) {
                 throw new Exception('Content ID is required');
             }

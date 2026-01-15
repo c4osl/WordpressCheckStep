@@ -1,0 +1,167 @@
+====================================
+CheckStep Integration Plugin
+Quick Installation & Setup Guide
+====================================
+
+IMPORTANT: This is a WordPress plugin and must be installed in a WordPress installation.
+It cannot run as a standalone PHP application.
+
+------------------------------------
+STEP 1: Install the Plugin
+------------------------------------
+
+1. Copy the entire "checkstep-integration" folder to your WordPress plugins directory:
+   /wp-content/plugins/checkstep-integration/
+
+2. Log in to your WordPress admin panel
+
+3. Navigate to: Plugins → Installed Plugins
+
+4. Find "CheckStep Integration" in the list
+
+5. Click "Activate"
+
+------------------------------------
+STEP 2: Configure API Credentials
+------------------------------------
+
+After activation, configure your CheckStep API credentials:
+
+1. In WordPress admin, go to: Settings → CheckStep
+
+2. You will see the CheckStep Integration settings page with three fields:
+
+   a) API Key (Required)
+      - Enter your CheckStep API key
+      - Get this from your CheckStep dashboard
+      - This field is password-masked for security
+
+   b) Webhook Secret (Required)
+      - Enter your CheckStep webhook secret
+      - Get this from your CheckStep dashboard
+      - This field is password-masked for security
+
+   c) Appeal URL (Optional)
+      - URL where users can appeal moderation decisions
+      - Example: https://yoursite.com/appeal
+
+3. Click "Save Changes"
+
+------------------------------------
+STEP 3: Configure Webhook in CheckStep
+------------------------------------
+
+1. On the settings page, copy the webhook URL shown:
+   https://yoursite.com/wp-json/checkstep/v1/decisions
+
+2. Log in to your CheckStep dashboard
+
+3. Navigate to webhook configuration
+
+4. Add the webhook URL
+
+5. Enter the same Webhook Secret you configured in Step 2
+
+------------------------------------
+STEP 4: Test the Connection
+------------------------------------
+
+1. In WordPress admin: Settings → CheckStep
+
+2. Click the "Test Connection" button
+
+3. If successful, you'll see: "Connected successfully"
+
+4. If it fails, verify:
+   - API Key is correct
+   - Webhook Secret is correct
+   - Your server can make outbound HTTPS requests
+
+------------------------------------
+WHERE TO FIND SETTINGS
+------------------------------------
+
+The plugin settings are accessible in TWO locations:
+
+Location 1: Settings → CheckStep
+- Main configuration page
+- API credentials setup
+- Connection testing
+- Webhook URL display
+
+Location 2: Tools → Moderation Queue
+- View pending moderation items
+- Process moderation decisions
+- Monitor queue status
+
+------------------------------------
+REQUIREMENTS
+------------------------------------
+
+- WordPress 5.0 or higher
+- PHP 7.4 or higher
+- BuddyBoss Platform (recommended)
+- CheckStep API account with valid credentials
+- HTTPS enabled on your site (for webhook security)
+
+------------------------------------
+TROUBLESHOOTING
+------------------------------------
+
+Problem: Settings page not showing
+Solution: 
+- Verify plugin is activated
+- Log in as Administrator
+- Clear browser cache
+- Check for JavaScript errors in browser console
+
+Problem: Can't find Settings → CheckStep
+Solution:
+- Make sure you're logged in as Administrator
+- Check that plugin is activated
+- Try accessing: Tools → Moderation Queue instead
+
+Problem: Test Connection fails
+Solution:
+- Verify API Key is correct (no extra spaces)
+- Verify Webhook Secret is correct
+- Check server can make outbound HTTPS requests
+- Check firewall/security plugin settings
+- Review WordPress debug log for errors
+
+Problem: Webhooks not being received
+Solution:
+- Verify webhook URL is correct in CheckStep dashboard
+- Check that your site is accessible from the internet
+- Ensure HTTPS is working properly
+- Verify Webhook Secret matches on both sides
+- Check WordPress REST API is accessible
+
+------------------------------------
+NEED HELP?
+------------------------------------
+
+1. Check the full README.md for detailed documentation
+
+2. Enable WordPress debug logging:
+   - Add to wp-config.php:
+     define('WP_DEBUG', true);
+     define('WP_DEBUG_LOG', true);
+   - Check /wp-content/debug.log for errors
+
+3. Contact CheckStep support for API-related issues
+
+4. Check WordPress error logs for plugin errors
+
+------------------------------------
+NEXT STEPS
+------------------------------------
+
+After successful configuration:
+
+1. The plugin will automatically monitor content as users post
+2. Check Tools → Moderation Queue to see pending items
+3. Moderation decisions will be displayed in the queue
+4. Users will be notified automatically when content is moderated
+
+====================================
