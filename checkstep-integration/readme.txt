@@ -3,7 +3,7 @@ Contributors: fanrefuge, checkstep
 Tags: moderation, content-moderation, buddyboss, ai-moderation, trust-safety
 Requires at least: 5.0
 Tested up to: 6.4
-Stable tag: 1.0.18
+Stable tag: 1.0.19
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -80,6 +80,10 @@ Yes, the plugin is designed with privacy in mind and is GDPR compliant. It only 
 5. BuddyBoss integration options
 
 == Changelog ==
+
+= 1.0.19 =
+* Fixed: Signature algorithm now matches CheckStep JS exactly: content = body.date.nonce, hash content with SHA256, then HMAC the hash
+* Removed: Dead code - handle_decision_webhook() removed from moderation class (was not called after webhook moved to webhook-handler class)
 
 = 1.0.18 =
 * BREAKING: Webhook signature verification now uses CheckStep headers (x-auth-signature, x-auth-date, x-auth-nonce)
