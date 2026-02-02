@@ -38,15 +38,6 @@ class CheckStep_API {
     private $api_url;
 
     /**
-     * Webhook event types supported by the integration
-     *
-     * @since 1.0.0
-     */
-    const EVENT_DECISION_TAKEN = 'decision_taken';
-    const EVENT_INCIDENT_CLOSED = 'incident_closed';
-    const EVENT_CONTENT_ANALYSED = 'content_analysed'; // Future implementation
-
-    /**
      * Constructor
      *
      * Initializes the API client with credentials and base URL.
@@ -63,71 +54,6 @@ class CheckStep_API {
             'api_url' => $this->api_url,
             'has_api_key' => !empty($this->api_key)
         ));
-    }
-
-    /**
-     * Get webhook configuration
-     *
-     * Returns the current webhook configuration including enabled events
-     * and callback URL.
-     *
-     * @since 1.0.0
-     * @return array Webhook configuration
-     */
-    public function get_webhook_config() {
-        return array(
-            'callback_url' => site_url('/wp-json/checkstep/v1/decisions'),
-            'enabled_events' => array(
-                self::EVENT_DECISION_TAKEN => array(
-                    'description' => 'Triggers when a moderation decision is made',
-                    'actions' => array('delete', 'hide', 'warn', 'ban_user'),
-                    'handler' => 'handle_moderation_decision'
-                ),
-                self::EVENT_INCIDENT_CLOSED => array(
-                    'description' => 'Triggers when a moderation incident is closed',
-                    'actions' => array('notify_user', 'update_appeal_status'),
-                    'handler' => 'handle_incident_closure'
-                )
-            ),
-            'future_events' => array(
-                self::EVENT_CONTENT_ANALYSED => array(
-                    'description' => 'Could be implemented for early intervention',
-                    'potential_actions' => array(
-                        'automated_takedown_pending_review',
-                        'preemptive_content_warning',
-                        'risk_score_tracking'
-                    )
-                )
-            )
-        );
-    }
-
-    /**
-     * Validate webhook signature
-     *
-     * Verifies that a webhook request came from CheckStep using HMAC
-     *
-     * @since 1.0.0
-     * @param string $payload Raw webhook payload
-     * @param string $signature Value of X-CheckStep-Signature header
-     * @return bool True if signature is valid
-     */
-    public function validate_webhook_signature($payload, $signature) {
-        try {
-            $webhook_secret = get_option('checkstep_webhook_secret');
-            if (empty($webhook_secret)) {
-                throw new Exception('Webhook secret not configured');
-            }
-
-            $expected = hash_hmac('sha256', $payload, $webhook_secret);
-            return hash_equals($expected, $signature);
-
-        } catch (Exception $e) {
-            CheckStep_Logger::error('Webhook signature validation failed', array(
-                'error' => $e->getMessage()
-            ));
-            return false;
-        }
     }
 
     /**
@@ -208,9 +134,6 @@ class CheckStep_API {
             if (empty($content_type) || !is_array($payload)) {
                 throw new Exception('Invalid content type or payload');
             }
-
-            // Add callback URL to payload
-            $payload['callback_url'] = $this->get_webhook_config()['callback_url'];
 
             CheckStep_Logger::debug('Preparing content submission', array(
                 'content_type' => $content_type,
