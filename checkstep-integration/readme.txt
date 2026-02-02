@@ -3,7 +3,7 @@ Contributors: fanrefuge, checkstep
 Tags: moderation, content-moderation, buddyboss, ai-moderation, trust-safety
 Requires at least: 5.0
 Tested up to: 6.4
-Stable tag: 1.0.19
+Stable tag: 1.0.21
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -80,6 +80,19 @@ Yes, the plugin is designed with privacy in mind and is GDPR compliant. It only 
 5. BuddyBoss integration options
 
 == Changelog ==
+
+= 1.0.21 =
+* Fixed: BuddyBoss notifications now work correctly - registered 'checkstep' as notification component
+* Fixed: Notification sender_id now uses admin user as fallback when no user is logged in (webhook context)
+* Added: Support for different content types in notifications (activities, forum topics/replies, user profiles, messages)
+* Added: Notification format callback for proper display in BuddyBoss notification list
+* Improved: Content author detection now handles BuddyBoss-specific content types
+
+= 1.0.20 =
+* Removed: callback_url no longer sent with content submissions (not needed)
+* Removed: get_webhook_config() method from API class (webhook handled by webhook handler)
+* Removed: validate_webhook_signature() method from API class (duplicate - webhook handler has this)
+* Removed: EVENT_* constants from API class (unused)
 
 = 1.0.19 =
 * Fixed: Signature algorithm now matches CheckStep JS exactly: content = body.date.nonce, hash content with SHA256, then HMAC the hash
